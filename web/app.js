@@ -202,6 +202,9 @@ function renderizarHeroKPIs() {
 
     const elRecAgente = document.getElementById("kpi-rec-agente");
     if (elRecAgente) elRecAgente.textContent = `${regAgente.recompensa_total.toFixed(1)}`;
+
+    const elResumenCob = document.getElementById("kpi-cob-crit-resumen");
+    if (elResumenCob) elResumenCob.textContent = `${regAgente.pct_critica_cubierta.toFixed(1)}%`;
   }
 
   if (regVoraz) {
@@ -210,6 +213,12 @@ function renderizarHeroKPIs() {
 
     const elCiclosVoraz = document.getElementById("kpi-ciclos-voraz");
     if (elCiclosVoraz) elCiclosVoraz.textContent = `${regVoraz.ciclos_bateria.toFixed(1)} ciclos`;
+  }
+
+  if (regAgente && regVoraz) {
+    const difCrit = (regAgente.pct_critica_cubierta - regVoraz.pct_critica_cubierta).toFixed(2);
+    const elDifCrit = document.getElementById("kpi-dif-crit");
+    if (elDifCrit) elDifCrit.textContent = difCrit;
   }
 
   if (regOraculo) {
@@ -742,14 +751,17 @@ function calcularMetricasSemana(semana, estrategiaKey) {
   const cobCrit = Math.max(0, 100 * (1 - nosrvCrit / demCrit));
   const cobTot = Math.max(0, 100 * (1 - nosrvTotal / demTotal));
 
-  // Ciclos útiles: descargas respecto a 1.92 kWh útiles (cap. nominal 2.4 kWh)
+  // Capacidad nominal y útil leídas dinámicamente de config.json
+  const capNominal = AppState.datos.config?.bateria?.capacidad_nominal_kwh ?? 2.4;
+  const capUtil = AppState.datos.config?.bateria?.capacidad_util_kwh ?? 1.92;
+
   let descargasKwh = 0;
   for (let i = 1; i < est.soc.length; i++) {
     if (est.soc[i] < est.soc[i - 1]) {
-      descargasKwh += (est.soc[i - 1] - est.soc[i]) * 2.4;
+      descargasKwh += (est.soc[i - 1] - est.soc[i]) * capNominal;
     }
   }
-  const ciclos = descargasKwh / 1.92;
+  const ciclos = descargasKwh / capUtil;
 
   return {
     demTotal,
@@ -770,16 +782,9 @@ function actualizarSimuladorSemanas() {
   const semana = semData.semanas[semanaIdx];
   if (!semana) return;
 
-  // 1. Renderizar Tarjetas KPI de la semana
   renderizarKpisSemana(semana, estrategia, compararVoraz);
-
-  // 2. Gráfico de Demanda y Generación Solar Horaria
   renderizarGraficoDemandaSemana(semana);
-
-  // 3. Gráfico de Evolución del SoC
   renderizarGraficoSocSemana(semana, estrategia, compararVoraz);
-
-  // 4. Franja de Colores con Acciones Horarias
   renderizarFranjaAccionesSemana(semana, estrategia, compararVoraz);
 }
 
@@ -815,7 +820,6 @@ function renderizarKpisSemana(semana, estrategia, compararVoraz) {
       </div>
     `;
   } else {
-    // Modo comparación Agente vs Voraz
     const difCrit = metAgente.cobCrit - metVoraz.cobCrit;
     const ahorroKwh = metVoraz.nosrvCrit - metAgente.nosrvCrit;
 
@@ -973,9 +977,16 @@ function renderizarGraficoSocSemana(semana, estrategia, compararVoraz) {
   const datosSocVoraz = semana.estrategias.voraz.soc.map((s) => s * 100);
   const datosSocElegido = semana.estrategias[estrategia].soc.map((s) => s * 100);
 
-  // Líneas constantes de referencia 20% y 100%
-  const ref20 = new Array(168).fill(20);
-  const ref100 = new Array(168).fill(100);
+  // Límites de SoC leídos dinámicamente de config.json
+  const socMinPct = (AppState.datos.config?.bateria?.soc_min ?? 0.2) * 100;
+  const socMaxPct = (AppState.datos.config?.bateria?.soc_max ?? 1.0) * 100;
+  const refMin = new Array(168).fill(socMinPct);
+  const refMax = new Array(168).fill(socMaxPct);
+
+  const lblMin = document.getElementById("lbl-soc-min-ref");
+  const lblMax = document.getElementById("lbl-soc-max-ref");
+  if (lblMin) lblMin.textContent = `${socMinPct.toFixed(0)}%`;
+  if (lblMax) lblMax.textContent = `${socMaxPct.toFixed(0)}%`;
 
   let datasets = [];
 
@@ -1004,8 +1015,8 @@ function renderizarGraficoSocSemana(semana, estrategia, compararVoraz) {
         tension: 0.1,
       },
       {
-        label: "SoC Mín. Admisible (20%)",
-        data: ref20,
+        label: `SoC Mín. (${socMinPct.toFixed(0)}%)`,
+        data: refMin,
         borderColor: "rgba(239, 68, 68, 0.5)",
         borderDash: [5, 5],
         borderWidth: 1.5,
@@ -1013,8 +1024,8 @@ function renderizarGraficoSocSemana(semana, estrategia, compararVoraz) {
         fill: false,
       },
       {
-        label: "SoC Máx. Admisible (100%)",
-        data: ref100,
+        label: `SoC Máx. (${socMaxPct.toFixed(0)}%)`,
+        data: refMax,
         borderColor: "rgba(16, 185, 129, 0.5)",
         borderDash: [5, 5],
         borderWidth: 1.5,
@@ -1044,8 +1055,8 @@ function renderizarGraficoSocSemana(semana, estrategia, compararVoraz) {
         tension: 0.1,
       },
       {
-        label: "SoC Mín. Admisible (20%)",
-        data: ref20,
+        label: `SoC Mín. (${socMinPct.toFixed(0)}%)`,
+        data: refMin,
         borderColor: "rgba(239, 68, 68, 0.5)",
         borderDash: [5, 5],
         borderWidth: 1.5,
@@ -1053,8 +1064,8 @@ function renderizarGraficoSocSemana(semana, estrategia, compararVoraz) {
         fill: false,
       },
       {
-        label: "SoC Máx. Admisible (100%)",
-        data: ref100,
+        label: `SoC Máx. (${socMaxPct.toFixed(0)}%)`,
+        data: refMax,
         borderColor: "rgba(16, 185, 129, 0.5)",
         borderDash: [5, 5],
         borderWidth: 1.5,
@@ -1101,8 +1112,8 @@ function renderizarGraficoSocSemana(semana, estrategia, compararVoraz) {
             title: { display: true, text: "Estado de Carga - SoC (%)", color: c.textoMuted },
             ticks: { color: c.textoMuted },
             grid: { color: c.lineaGrid },
-            min: 15,
-            max: 105,
+            min: Math.max(0, socMinPct - 10),
+            max: Math.min(105, socMaxPct + 5),
           },
         },
       },
@@ -1178,14 +1189,33 @@ function inicializarPoliticaAprendida() {
   const selRad = document.getElementById("pol-select-rad");
   const selRadAyer = document.getElementById("pol-select-rad-ayer");
 
-  if (selRad) {
+  // Poblar opciones dinámicamente desde politica.json
+  if (selRad && polData.etiquetas && polData.etiquetas.radiacion) {
+    selRad.innerHTML = "";
+    polData.etiquetas.radiacion.forEach((etiq, idx) => {
+      const opt = document.createElement("option");
+      opt.value = idx.toString();
+      opt.textContent = `${idx} · ${etiq}`;
+      if (idx === AppState.politica.nivelRad) opt.selected = true;
+      selRad.appendChild(opt);
+    });
+
     selRad.addEventListener("change", (e) => {
       AppState.politica.nivelRad = parseInt(e.target.value, 10);
       actualizarPoliticaAprendida();
     });
   }
 
-  if (selRadAyer) {
+  if (selRadAyer && polData.etiquetas && polData.etiquetas.radiacion_dia_anterior) {
+    selRadAyer.innerHTML = "";
+    polData.etiquetas.radiacion_dia_anterior.forEach((etiq, idx) => {
+      const opt = document.createElement("option");
+      opt.value = idx.toString();
+      opt.textContent = `${idx} · ${etiq}`;
+      if (idx === AppState.politica.nivelRadAyer) opt.selected = true;
+      selRadAyer.appendChild(opt);
+    });
+
     selRadAyer.addEventListener("change", (e) => {
       AppState.politica.nivelRadAyer = parseInt(e.target.value, 10);
       actualizarPoliticaAprendida();
@@ -1204,15 +1234,13 @@ function actualizarPoliticaAprendida() {
 
   const radIdx = AppState.politica.nivelRad;
   const radAyerIdx = AppState.politica.nivelRadAyer;
-  const matrizPolitica = polData.politica; // [hora:24][soc:10][rad:4][rad_ayer:3]
+  const matrizPolitica = polData.politica;
 
-  const etiquetasSoC = polData.etiquetas.soc; // 10 intervalos ('20-28 %' .. '92-100 %')
-  const etiquetasHora = polData.etiquetas.hora; // 24 horas ('00:00' .. '23:00')
+  const etiquetasSoC = polData.etiquetas.soc;
+  const etiquetasHora = polData.etiquetas.hora;
 
-  // Renderizar de SoC 100% arriba a SoC 20% abajo (filas 9 down to 0)
   let html = `<div class="grid grid-cols-[68px_repeat(24,1fr)] gap-1 text-[10px] items-center">`;
 
-  // Fila de Cabecera (Horas)
   html += `<div class="font-bold text-slate-400 text-center">SoC \\ Hora</div>`;
   etiquetasHora.forEach((hStr) => {
     const horaCorta = hStr.split(":")[0];
@@ -1241,6 +1269,52 @@ function actualizarPoliticaAprendida() {
 }
 
 // =============================================================================
+// SECCIÓN 8: CONCLUSIONES Y LÍMITES (DINÁMICO DESDE METRICAS.JSON)
+// =============================================================================
+function renderizarConclusiones() {
+  const metData = AppState.datos.metricas;
+  if (!metData || !metData.metricas) return;
+
+  const registrosPrueba = metData.metricas.filter(
+    (m) => m.periodo === "Prueba 2023-2024" && m.epoca === "anual"
+  );
+
+  const regAgente = registrosPrueba.find((m) => m.estrategia.includes("Q-Learning"));
+  const regVoraz = registrosPrueba.find((m) => m.estrategia === "Voraz");
+  const regOraculo = registrosPrueba.find((m) => m.estrategia.includes("Oráculo"));
+  const regHoraria = registrosPrueba.find((m) => m.estrategia.includes("Horaria"));
+
+  if (!regAgente || !regVoraz) return;
+
+  const setTxt = (id, txt) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = txt;
+  };
+
+  const pctReduccion = (((regVoraz.nosrv_crit_kwh - regAgente.nosrv_crit_kwh) / regVoraz.nosrv_crit_kwh) * 100).toFixed(1);
+
+  setTxt("concl-horas", regAgente.horas_evaluadas.toLocaleString());
+  setTxt("concl-cob-crit-agente", `${regAgente.pct_critica_cubierta.toFixed(2)}%`);
+  setTxt("concl-cob-crit-voraz", `${regVoraz.pct_critica_cubierta.toFixed(2)}%`);
+  setTxt("concl-nosrv-voraz", `${regVoraz.nosrv_crit_kwh.toFixed(2)}`);
+  setTxt("concl-nosrv-agente", `${regAgente.nosrv_crit_kwh.toFixed(2)}`);
+  setTxt("concl-pct-reduccion", `${pctReduccion}%`);
+
+  setTxt("concl-rec-agente", `${regAgente.recompensa_total.toFixed(2)}`);
+  setTxt("concl-rec-voraz", `${regVoraz.recompensa_total.toFixed(2)}`);
+  if (regOraculo) setTxt("concl-rec-oraculo", `${regOraculo.recompensa_total.toFixed(2)}`);
+  setTxt("concl-pct-optimo", `${regAgente.pct_optimo_alcanzado.toFixed(2)}%`);
+
+  setTxt("concl-ciclos-agente", `${regAgente.ciclos_bateria.toFixed(1)}`);
+  setTxt("concl-ciclos-voraz", `${regVoraz.ciclos_bateria.toFixed(1)}`);
+
+  if (regHoraria) {
+    setTxt("concl-ciclos-horaria", `${regHoraria.ciclos_bateria.toFixed(1)}`);
+    setTxt("concl-cob-nc-horaria", `${regHoraria.pct_no_critica_cubierta.toFixed(2)}%`);
+  }
+}
+
+// =============================================================================
 // INICIALIZACIÓN PRINCIPAL
 // =============================================================================
 document.addEventListener("DOMContentLoaded", async () => {
@@ -1256,7 +1330,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   renderizarEntrenamiento();
   actualizarResultados();
 
-  // Nuevas secciones 6 y 7
   inicializarSimuladorSemanas();
   inicializarPoliticaAprendida();
+  renderizarConclusiones();
 });

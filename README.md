@@ -7,8 +7,12 @@ El proyecto incluye la formulación física completa, entrenamiento, validación
 
 ---
 
+> [!NOTE]
+> **Pregunta de Investigación:**  
+> *«¿Puede un agente de RL gestionar la batería de una microrred rural en La Paz cubriendo más demanda crítica que las reglas fijas, sin aumentar el desgaste de la batería?»*
+
 > [!IMPORTANT]
-> **Nota sobre la Demanda Eléctrica:**
+> **Nota sobre la Demanda Eléctrica:**  
 > Los perfiles de demanda horaria utilizados en este proyecto corresponden a **demanda simulada**, generada sintéticamente con variabilidad estocástica log-normal (~10%) y factor de incremento de fin de semana (+15%), dividida en **cargas críticas** (~1.6 kWh/día: refrigeración básica continua, iluminación y comunicaciones) y **cargas no críticas** (~1.8 kWh/día: bombeo de agua, artefactos y talleres). Todos los métodos se evalúan exactamente sobre la misma serie temporal reproducida con semilla fija (42).
 
 ---
@@ -17,6 +21,9 @@ El proyecto incluye la formulación física completa, entrenamiento, validación
 
 ```text
 .
+├── .github/
+│   └── workflows/
+│       └── pages.yml                  # Flujo de GitHub Actions para despliegue automático en Pages
 ├── data/
 │   ├── nasa_power_lapaz_hourly.csv    # Serie histórica cruda NASA POWER (2015–2024, 87,672 h)
 │   └── processed/
@@ -115,11 +122,11 @@ python python/export_web_data.py
 
 ---
 
-## 🌐 Cómo Servir la Aplicación Web
+## 🌐 Cómo Servir y Desplegar la Aplicación Web
 
-Dado que la aplicación realiza peticiones `fetch()` a archivos JSON locales, debe ejecutarse a través de un servidor HTTP local (abrir con doble clic directamente en el explorador de archivos es bloqueado por políticas de CORS del navegador):
+Dado que la aplicación realiza peticiones `fetch()` a archivos JSON locales, debe ejecutarse a través de un servidor HTTP local o plataforma estática:
 
-### Opción 1: Servidor Python integrado (Recomendada)
+### Opción 1: Servidor Python local (Recomendada para desarrollo)
 
 Desde la raíz del repositorio:
 
@@ -134,16 +141,16 @@ cd web
 python -m http.server 8000
 ```
 
-Luego abre en tu navegador web:
+Luego abre en tu navegador web:  
 👉 **[http://localhost:8000](http://localhost:8000)**
 
-### Opción 2: Publicación en GitHub Pages
+### Opción 2: Publicación automática en GitHub Pages (vía GitHub Actions)
 
-La carpeta `web/` está diseñada de forma **100% autónoma y relativa**:
-- No contiene ninguna ruta absoluta a disco.
-- Utiliza CDNs fijas para Tailwind CSS y Chart.js 4.4.x.
-- Para publicar en GitHub Pages:
-  1. Configura GitHub Pages en los ajustes del repositorio apuntando a la rama `master` y la carpeta `/web` (o usa una acción para desplegar la carpeta `web`).
+El repositorio incluye el flujo automatizado [`.github/workflows/pages.yml`](.github/workflows/pages.yml):
+1. Ve a tu repositorio en GitHub y abre la pestaña **Settings**.
+2. En el menú lateral izquierdo, haz clic en **Pages**.
+3. En la sección **Build and deployment**, bajo el menú desplegable **Source**, selecciona **GitHub Actions** (en lugar de *Deploy from a branch*).
+4. Al hacer push a la rama `master`, GitHub Actions construirá y publicará automáticamente la carpeta `web/`.
 
 ---
 
@@ -162,7 +169,7 @@ Evaluación sobre **17,540 horas** (años 2023 y 2024 completos):
 ### Conclusiones Clave:
 1. **Reducción del 97.5% en Déficit Crítico:** El agente RL prácticamente elimina los cortes en servicios esenciales (refrigeración médica/alimentaria, comunicaciones), reduciendo el déficit de 196.85 kWh a solo 4.94 kWh en dos años.
 2. **94.83% de la Cota Teórica Óptima:** Supera a todas las heurísticas fijas y se acerca estrechamente al oráculo de programación dinámica que dispone de información futura perfecta.
-3. **Mismo Desgaste, Mayor Utilidad:** El agente realiza prácticamente el mismo número de ciclos de batería que el voraz (611 vs 612 ciclos), pero sincroniza las descargas con los momentos de alto valor social en lugar de agotar la reserva en consumos no críticos diurnos.
+3. **Comportamiento del Desgaste y Ciclado:** Los ciclos de batería del agente (611.0 ciclos) son similares a los del voraz (611.8 ciclos) y mayores que los de la regla horaria (456.5 ciclos). La regla horaria ahorra ciclos únicamente porque deja solo un 60.51% de cobertura no crítica al apagar el uso de batería a las 21:00 h, mientras que el agente distribuye el ciclado con alta inteligencia para garantizar las cargas críticas sin incrementar el desgaste respecto al baseline voraz.
 
 ---
 
@@ -170,5 +177,5 @@ Evaluación sobre **17,540 horas** (años 2023 y 2024 completos):
 
 Los datos de irradiación solar (GHI) y temperatura a 2 m (T2M) se obtuvieron de:
 
-> **NASA Langley Research Center (LaRC) POWER Project**, financiado a través del programa Earth Science / Applied Sciences de la NASA.
+> **NASA Langley Research Center (LaRC) POWER Project**, financiado a través del programa Earth Science / Applied Sciences de la NASA.  
 > Portal oficial: [https://power.larc.nasa.gov/](https://power.larc.nasa.gov/)

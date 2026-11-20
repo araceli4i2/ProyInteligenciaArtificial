@@ -98,7 +98,7 @@
         </div>
       </a>
 
-      <!-- Enlaces de Anclas (Scroll horizontal en pantallas intermedias) -->
+      <!-- Enlaces de Anclas (Scroll horizontal en pantallas estrechas) -->
       <nav class="flex items-center gap-1 sm:gap-2 text-[11px] sm:text-xs md:text-sm font-medium text-slate-300 overflow-x-auto py-1 scrollbar-none">
         <a href="#hero" class="px-2 sm:px-2.5 py-1 rounded-md hover:text-solar-400 hover:bg-slate-800/60 transition-colors shrink-0">Inicio</a>
         <a href="#datos" class="px-2 sm:px-2.5 py-1 rounded-md hover:text-solar-400 hover:bg-slate-800/60 transition-colors shrink-0">Clima</a>
@@ -142,7 +142,7 @@
         <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800/90 shadow-xl backdrop-blur-sm">
           <p class="text-xs uppercase tracking-wider font-semibold text-solar-400 mb-1">Pregunta de Investigación</p>
           <blockquote class="text-base sm:text-lg text-slate-200 italic leading-relaxed">
-            «¿Puede un agente de RL gestionar la batería de una microrred rural en La Paz cubriendo más demanda y desgastando menos la batería que las reglas fijas?»
+            «¿Puede un agente de RL gestionar la batería de una microrred rural en La Paz cubriendo más demanda crítica que las reglas fijas, sin aumentar el desgaste de la batería?»
           </blockquote>
         </div>
 
@@ -176,14 +176,14 @@
           </div>
           <div class="mt-3 text-xs text-emerald-400 font-medium flex items-center gap-1.5">
             <span>↑</span>
-            <span>+15.75 p.p. de protección en cargas críticas vitales</span>
+            <span>+<span id="kpi-dif-crit">15.75</span> p.p. de protección en cargas críticas vitales</span>
           </div>
         </div>
 
         <!-- KPI 2: Ciclos y Desgaste de Batería -->
         <div class="relative overflow-hidden rounded-2xl bg-gradient-to-b from-slate-900/90 to-slate-950 border border-slate-800 p-6 shadow-lg hover:border-solar-500/40 transition-colors">
           <div class="flex items-center justify-between mb-3">
-            <span class="text-xs font-medium uppercase tracking-wider text-slate-400">Desgaste de Batería</span>
+            <span class="text-xs font-medium uppercase tracking-wider text-slate-400">Uso de Batería</span>
             <span class="text-xs px-2 py-0.5 rounded-full font-bold bg-solar-500/20 text-solar-400 border border-solar-500/30">2 Años de Prueba</span>
           </div>
           <div class="flex items-baseline gap-2 mb-2">
@@ -196,8 +196,8 @@
               <span id="kpi-ciclos-voraz" class="font-mono text-slate-300">-- ciclos</span>
             </div>
             <div class="flex justify-between">
-              <span class="text-slate-400">Eficiencia de uso:</span>
-              <span class="font-mono text-solar-400 font-bold">99.6% servido útil</span>
+              <span class="text-slate-400">Cobertura crítica útil:</span>
+              <span id="kpi-cob-crit-resumen" class="font-mono text-solar-400 font-bold">--%</span>
             </div>
           </div>
           <div class="mt-3 text-xs text-solar-400 font-medium flex items-center gap-1.5">
@@ -355,19 +355,19 @@
             <ul class="text-xs text-slate-300 space-y-2 font-mono">
               <li class="flex items-center justify-between border-b border-slate-800 pb-1">
                 <span class="text-slate-400 font-sans">Hora del día:</span>
-                <span id="mdp-num-horas" class="font-bold text-slate-200">24 valores</span>
+                <span id="mdp-num-horas" class="font-bold text-slate-200">-- horas</span>
               </li>
               <li class="flex items-center justify-between border-b border-slate-800 pb-1">
                 <span class="text-slate-400 font-sans">SoC Batería:</span>
-                <span id="mdp-num-soc" class="font-bold text-slate-200">10 niveles</span>
+                <span id="mdp-num-soc" class="font-bold text-slate-200">-- niveles</span>
               </li>
               <li class="flex items-center justify-between border-b border-slate-800 pb-1">
                 <span class="text-slate-400 font-sans">Radiación actual:</span>
-                <span id="mdp-num-ghi" class="font-bold text-slate-200">4 niveles</span>
+                <span id="mdp-num-ghi" class="font-bold text-slate-200">-- cuantiles</span>
               </li>
               <li class="flex items-center justify-between">
                 <span class="text-slate-400 font-sans">Rad. día anterior:</span>
-                <span id="mdp-num-ghi-ayer" class="font-bold text-slate-200">3 terciles</span>
+                <span id="mdp-num-ghi-ayer" class="font-bold text-slate-200">-- terciles</span>
               </li>
             </ul>
           </div>
@@ -419,15 +419,15 @@
             <ul class="text-xs text-slate-300 space-y-2 font-mono">
               <li class="flex items-center justify-between border-b border-slate-800 pb-1">
                 <span class="text-slate-400 font-sans">Déficit crítico ($w_c$):</span>
-                <span id="mdp-peso-crit" class="font-bold text-red-400">-10.0 / kWh</span>
+                <span id="mdp-peso-crit" class="font-bold text-red-400">-- / kWh</span>
               </li>
               <li class="flex items-center justify-between border-b border-slate-800 pb-1">
                 <span class="text-slate-400 font-sans">Déficit no crítico ($w_{nc}$):</span>
-                <span id="mdp-peso-nc" class="font-bold text-amber-400">-1.0 / kWh</span>
+                <span id="mdp-peso-nc" class="font-bold text-amber-400">-- / kWh</span>
               </li>
               <li class="flex items-center justify-between">
-                <span class="text-slate-400 font-sans">Degradación batería ($w_b$):</span>
-                <span id="mdp-peso-bat" class="font-bold text-slate-300">-0.10 / kWh</span>
+                <span class="text-slate-400 font-sans">Uso de batería ($w_b$):</span>
+                <span id="mdp-peso-bat" class="font-bold text-slate-300">-- / kWh</span>
               </li>
             </ul>
           </div>
@@ -447,23 +447,23 @@
             <ul class="text-xs text-slate-300 space-y-2 font-mono">
               <li class="flex items-center justify-between border-b border-slate-800 pb-1">
                 <span class="text-slate-400 font-sans">Potencia FV pico:</span>
-                <span id="mdp-fv-pico" class="font-bold text-solar-400">0.75 kWp</span>
+                <span id="mdp-fv-pico" class="font-bold text-solar-400">-- kWp</span>
               </li>
               <li class="flex items-center justify-between border-b border-slate-800 pb-1">
                 <span class="text-slate-400 font-sans">Rendimiento (PR):</span>
-                <span id="mdp-fv-pr" class="font-bold text-slate-200">0.80</span>
+                <span id="mdp-fv-pr" class="font-bold text-slate-200">--</span>
               </li>
               <li class="flex items-center justify-between border-b border-slate-800 pb-1">
                 <span class="text-slate-400 font-sans">Capacidad Batería:</span>
-                <span id="mdp-bat-cap" class="font-bold text-slate-200">2.4 kWh nom.</span>
+                <span id="mdp-bat-cap" class="font-bold text-slate-200">-- kWh</span>
               </li>
               <li class="flex items-center justify-between border-b border-slate-800 pb-1">
                 <span class="text-slate-400 font-sans">Rango SoC admisible:</span>
-                <span id="mdp-bat-soc-rango" class="font-bold text-slate-200">20% – 100%</span>
+                <span id="mdp-bat-soc-rango" class="font-bold text-slate-200">--</span>
               </li>
               <li class="flex items-center justify-between">
                 <span class="text-slate-400 font-sans">Eficiencia C/D:</span>
-                <span id="mdp-bat-eficiencia" class="font-bold text-slate-200">0.95 / 0.95</span>
+                <span id="mdp-bat-eficiencia" class="font-bold text-slate-200">--</span>
               </li>
             </ul>
           </div>
@@ -534,39 +534,39 @@
                 <tbody class="divide-y divide-slate-800/80 font-mono">
                   <tr>
                     <td class="py-2 px-3 text-slate-400 font-sans">Episodios totales</td>
-                    <td id="param-episodios" class="py-2 px-3 text-right font-bold text-slate-200">60,000</td>
+                    <td id="param-episodios" class="py-2 px-3 text-right font-bold text-slate-200">--</td>
                   </tr>
                   <tr>
                     <td class="py-2 px-3 text-slate-400 font-sans">Duración episodio</td>
-                    <td id="param-horas-ep" class="py-2 px-3 text-right font-bold text-slate-200">168 h (1 sem)</td>
+                    <td id="param-horas-ep" class="py-2 px-3 text-right font-bold text-slate-200">--</td>
                   </tr>
                   <tr>
                     <td class="py-2 px-3 text-slate-400 font-sans">Tasa de aprendizaje ($\alpha$)</td>
-                    <td id="param-alfa" class="py-2 px-3 text-right font-bold text-slate-200">0.10</td>
+                    <td id="param-alfa" class="py-2 px-3 text-right font-bold text-slate-200">--</td>
                   </tr>
                   <tr>
                     <td class="py-2 px-3 text-slate-400 font-sans">Factor descuento ($\gamma$)</td>
-                    <td id="param-gamma" class="py-2 px-3 text-right font-bold text-slate-200">0.99</td>
+                    <td id="param-gamma" class="py-2 px-3 text-right font-bold text-slate-200">--</td>
                   </tr>
                   <tr>
                     <td class="py-2 px-3 text-slate-400 font-sans">Exploración ($\epsilon_{ini} \to \epsilon_{fin}$)</td>
-                    <td id="param-epsilon" class="py-2 px-3 text-right font-bold text-solar-400">1.0 $\to$ 0.05</td>
+                    <td id="param-epsilon" class="py-2 px-3 text-right font-bold text-solar-400">--</td>
                   </tr>
                   <tr>
                     <td class="py-2 px-3 text-slate-400 font-sans">Decay de $\epsilon$</td>
-                    <td id="param-decay" class="py-2 px-3 text-right font-bold text-slate-200">Primer 70%</td>
+                    <td id="param-decay" class="py-2 px-3 text-right font-bold text-slate-200">--</td>
                   </tr>
                   <tr>
                     <td class="py-2 px-3 text-slate-400 font-sans">Años entrenamiento</td>
-                    <td id="param-train-years" class="py-2 px-3 text-right font-bold text-slate-200">2015–2021</td>
+                    <td id="param-train-years" class="py-2 px-3 text-right font-bold text-slate-200">--</td>
                   </tr>
                   <tr>
                     <td class="py-2 px-3 text-slate-400 font-sans">Año validación</td>
-                    <td id="param-val-year" class="py-2 px-3 text-right font-bold text-slate-200">2022</td>
+                    <td id="param-val-year" class="py-2 px-3 text-right font-bold text-slate-200">--</td>
                   </tr>
                   <tr>
                     <td class="py-2 px-3 text-slate-400 font-sans">Semilla aleatoria</td>
-                    <td id="param-semilla" class="py-2 px-3 text-right font-bold text-slate-200">42</td>
+                    <td id="param-semilla" class="py-2 px-3 text-right font-bold text-slate-200">--</td>
                   </tr>
                 </tbody>
               </table>
@@ -771,7 +771,7 @@
         <div class="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h3 class="text-base font-semibold text-slate-200">Evolución del Estado de Carga (SoC %)</h3>
-            <p class="text-xs text-slate-400">Trayectoria de almacenamiento con límites operativos admisibles (20% – 100%)</p>
+            <p class="text-xs text-slate-400">Trayectoria de almacenamiento con límites operativos admisibles</p>
           </div>
           <div class="flex items-center gap-3 text-xs">
             <span id="leyenda-soc-agente" class="flex items-center gap-1.5">
@@ -781,10 +781,10 @@
               <span class="w-3 h-1 bg-red-400 rounded-full"></span> Baseline Voraz
             </span>
             <span class="flex items-center gap-1 text-slate-400">
-              <span class="w-3 border-b-2 border-dashed border-red-500"></span> 20% SoC Mín.
+              <span class="w-3 border-b-2 border-dashed border-red-500"></span> <span id="lbl-soc-min-ref">20%</span> SoC Mín.
             </span>
             <span class="flex items-center gap-1 text-slate-400">
-              <span class="w-3 border-b-2 border-dashed border-emerald-500"></span> 100% SoC Máx.
+              <span class="w-3 border-b-2 border-dashed border-emerald-500"></span> <span id="lbl-soc-max-ref">100%</span> SoC Máx.
             </span>
           </div>
         </div>
@@ -842,7 +842,7 @@
         </p>
       </div>
 
-      <!-- Selectores de Radiación -->
+      <!-- Selectores de Radiación Dinámicos (leídos de politica.json) -->
       <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-md flex flex-wrap items-center justify-between gap-4">
         
         <div class="flex flex-wrap items-center gap-4">
@@ -850,10 +850,7 @@
           <div class="flex items-center gap-2">
             <label for="pol-select-rad" class="text-xs font-semibold uppercase tracking-wider text-solar-400">Radiación Actual (GHI):</label>
             <select id="pol-select-rad" class="bg-slate-950 border border-solar-500/40 text-solar-300 text-xs rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-solar-500 focus:outline-none">
-              <option value="0">0 · Noche (≤ 5 W/m²)</option>
-              <option value="1">1 · Radiación Baja (5 – 322 W/m²)</option>
-              <option value="2">2 · Radiación Media (322 – 675 W/m²)</option>
-              <option value="3" selected>3 · Radiación Alta (> 675 W/m²)</option>
+              <!-- Se puebla dinámicamente desde politica.json -->
             </select>
           </div>
 
@@ -861,9 +858,7 @@
           <div class="flex items-center gap-2">
             <label for="pol-select-rad-ayer" class="text-xs font-semibold uppercase tracking-wider text-slate-400">Radiación Día Anterior:</label>
             <select id="pol-select-rad-ayer" class="bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-solar-500 focus:outline-none">
-              <option value="0">0 · Ayer Nublado (< 5.5 kWh/m²/día)</option>
-              <option value="1" selected>1 · Ayer Medio (5.5 – 6.3 kWh/m²/día)</option>
-              <option value="2">2 · Ayer Despejado (≥ 6.3 kWh/m²/día)</option>
+              <!-- Se puebla dinámicamente desde politica.json -->
             </select>
           </div>
         </div>
@@ -944,34 +939,34 @@
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
-        <!-- Tarjeta de Conclusiones Principales -->
+        <!-- Tarjeta de Conclusiones Principales (Cifras dinámicas desde metricas.json) -->
         <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-lg flex flex-col justify-between space-y-4">
           <div class="space-y-3">
             <span class="text-xs font-bold uppercase tracking-wider text-solar-400">Hallazgos Principales</span>
             <h3 class="text-lg font-bold text-slate-100">Resumen de Resultados Empíricos (2023–2024)</h3>
             
             <p class="text-xs text-slate-300 leading-relaxed">
-              En la prueba ciega de dos años completos (17,540 horas consecutivas que el agente nunca vio durante su entrenamiento), el algoritmo de <strong>Q-Learning Tabular</strong> demostró una superioridad decisiva sobre las reglas fijas convencionales:
+              En la prueba ciega de dos años completos (<span id="concl-horas" class="font-mono text-slate-200">--</span> horas consecutivas que el agente nunca vio durante su entrenamiento), el algoritmo de <strong>Q-Learning Tabular</strong> demostró una superioridad decisiva sobre las reglas fijas convencionales:
             </p>
 
             <ul class="text-xs text-slate-300 space-y-2.5">
               <li class="flex items-start gap-2 bg-slate-950/50 p-2.5 rounded-lg border border-slate-800/80">
                 <span class="text-emerald-400 font-bold shrink-0">✓</span>
-                <span><strong>Protección crítica vital:</strong> Alcanzó <strong>99.59%</strong> de cobertura crítica frente a un deficiente <strong>83.84%</strong> del baseline voraz, reduciendo el déficit crítico de 196.85 kWh a tan solo <strong>4.94 kWh</strong> (una reducción del <strong>97.5%</strong> en pérdidas críticas).</span>
+                <span><strong>Protección crítica vital:</strong> Alcanzó <strong id="concl-cob-crit-agente" class="text-solar-400">--%</strong> de cobertura crítica frente a un deficiente <strong id="concl-cob-crit-voraz" class="text-red-400">--%</strong> del baseline voraz, reduciendo el déficit crítico de <span id="concl-nosrv-voraz" class="font-mono">--</span> kWh a tan solo <span id="concl-nosrv-agente" class="font-mono text-emerald-400">--</span> kWh (una reducción del <strong id="concl-pct-reduccion" class="text-emerald-400">--%</strong> en pérdidas críticas).</span>
               </li>
               <li class="flex items-start gap-2 bg-slate-950/50 p-2.5 rounded-lg border border-slate-800/80">
                 <span class="text-emerald-400 font-bold shrink-0">✓</span>
-                <span><strong>Cercanía a la cota teórica óptima:</strong> Con una recompensa acumulada de <strong>-607.09</strong> frente a <strong>-2276.08</strong> del voraz, el agente cerró el <strong>94.83%</strong> de la brecha respecto al oráculo de Programación Dinámica con información perfecta (-516.01).</span>
+                <span><strong>Cercanía a la cota teórica óptima:</strong> Con una recompensa acumulada de <strong id="concl-rec-agente" class="text-solar-400">--</strong> frente a <span id="concl-rec-voraz" class="font-mono">--</span> del voraz, el agente cerró el <strong id="concl-pct-optimo" class="text-emerald-400">--%</strong> de la brecha respecto al oráculo de Programación Dinámica con información perfecta (<span id="concl-rec-oraculo" class="font-mono">--</span>).</span>
               </li>
               <li class="flex items-start gap-2 bg-slate-950/50 p-2.5 rounded-lg border border-slate-800/80">
                 <span class="text-emerald-400 font-bold shrink-0">✓</span>
-                <span><strong>Ciclado inteligente sin desgaste adicional:</strong> Logró estos resultados con <strong>611.0 ciclos</strong> de batería, prácticamente idénticos a los 611.8 ciclos del voraz, demostrando que la ganancia no proviene de subutilizar la batería, sino de sincronizar las descargas con los momentos de alto impacto social.</span>
+                <span><strong>Comportamiento del desgaste y ciclado:</strong> Los ciclos de batería del agente (<strong id="concl-ciclos-agente" class="font-mono text-solar-400">--</strong> ciclos) son <strong>similares a los del voraz</strong> (<span id="concl-ciclos-voraz" class="font-mono">--</span> ciclos) y <strong>mayores que los de la regla horaria</strong> (<span id="concl-ciclos-horaria" class="font-mono">--</span> ciclos). La regla horaria ahorra ciclos únicamente porque deja solo un <strong id="concl-cob-nc-horaria" class="text-red-400 font-mono">--%</strong> de cobertura no crítica al apagar el uso de batería a las 21:00 h, mientras que el agente distribuye el ciclado con alta inteligencia para garantizar las cargas críticas sin incrementar el desgaste respecto al baseline voraz.</span>
               </li>
             </ul>
           </div>
 
           <div class="pt-3 border-t border-slate-800 text-[11px] text-slate-400">
-            Respaldo numérico verificado en <code class="font-mono text-slate-300">results/metricas.csv</code>.
+            Respaldo numérico verificado dinámicamente desde <code class="font-mono text-slate-300">web/data/metricas.json</code>.
           </div>
         </div>
 
@@ -1028,7 +1023,7 @@
         </div>
         <div class="text-left md:text-right">
           <p class="text-slate-300 font-medium">Arquitectura 100% Estática (HTML5 / Tailwind CDN / Chart.js)</p>
-          <p class="text-slate-400">Compatible con GitHub Pages y servidores web locales</p>
+          <p class="text-slate-400">Despliegue automatizado con GitHub Actions en GitHub Pages</p>
         </div>
       </div>
 
