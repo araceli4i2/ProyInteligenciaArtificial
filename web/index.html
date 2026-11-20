@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="es" class="dark scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestión Inteligente de Baterías Solares con Aprendizaje por Refuerzo | La Paz, Bolivia</title>
+  <meta name="description" content="Dashboard interactivo sobre la optimización de microrredes solares fotovoltaicas aisladas en La Paz mediante Q-Learning vs baselines heurísticos y programación dinámica (oráculo).">
+
+  <!-- Tailwind CSS (Versión fija CDN) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            solar: {
+              50: '#fffbeb',
+              100: '#fef3c7',
+              200: '#fde68a',
+              300: '#fcd34d',
+              400: '#fbbf24',
+              500: '#f59e0b',
+              600: '#d97706',
+              700: '#b45309',
+              800: '#92400e',
+              900: '#78350f',
+              950: '#451a03',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Chart.js 4.4.1 (Versión fija CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <style>
+    /* Estilos base y transiciones suaves de tema */
+    body {
+      transition: background-color 0.25s ease, color 0.25s ease;
+    }
+    .heatmap-cell {
+      aspect-ratio: 1 / 1;
+      min-width: 18px;
+      transition: transform 0.15s ease, outline 0.15s ease;
+    }
+    .heatmap-cell:hover {
+      transform: scale(1.25);
+      z-index: 20;
+      outline: 2px solid #f59e0b;
+      position: relative;
+    }
+    /* Scrollbar estilizada */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #475569;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #f59e0b;
+    }
+  </style>
+</head>
+
+<body class="bg-slate-950 text-slate-100 font-sans antialiased min-h-screen selection:bg-solar-500 selection:text-slate-950">
+
+  <!-- ========================================================================= -->
+  <!-- BARRA DE NAVEGACIÓN FIJA                                                   -->
+  <!-- ========================================================================= -->
+  <header class="sticky top-0 z-50 backdrop-blur-md bg-slate-950/85 dark:bg-slate-950/85 border-b border-slate-800 transition-colors">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <!-- Logo y Título Corto -->
+      <a href="#hero" class="flex items-center gap-3 group focus:outline-none focus:ring-2 focus:ring-solar-500 rounded-lg p-1">
+        <div class="w-9 h-9 rounded-lg bg-solar-500/20 border border-solar-500/40 flex items-center justify-center text-solar-400 font-bold group-hover:scale-105 transition-transform">
+          ⚡
+        </div>
+        <div>
+          <span class="font-bold text-slate-100 dark:text-slate-100 tracking-tight text-sm sm:text-base group-hover:text-solar-400 transition-colors">
+            SolarRL <span class="text-solar-500 font-mono text-xs px-1.5 py-0.5 rounded bg-solar-500/10 border border-solar-500/20">La Paz</span>
+          </span>
+          <p class="text-xs text-slate-400 hidden md:block">Microrred Solar Aislada con RL</p>
+        </div>
+      </a>
+
+      <!-- Enlaces de Anclas -->
+      <nav class="hidden md:flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-medium text-slate-300">
+        <a href="#hero" class="px-3 py-1.5 rounded-md hover:text-solar-400 hover:bg-slate-800/60 transition-colors">Inicio</a>
+        <a href="#datos" class="px-3 py-1.5 rounded-md hover:text-solar-400 hover:bg-slate-800/60 transition-colors">Datos Climáticos</a>
+        <a href="#modelo" class="px-3 py-1.5 rounded-md hover:text-solar-400 hover:bg-slate-800/60 transition-colors">Modelo MDP</a>
+        <a href="#entrenamiento" class="px-3 py-1.5 rounded-md hover:text-solar-400 hover:bg-slate-800/60 transition-colors">Entrenamiento</a>
+        <a href="#resultados" class="px-3 py-1.5 rounded-md hover:text-solar-400 hover:bg-slate-800/60 transition-colors">Resultados</a>
+      </nav>
+
+      <!-- Botón de Tema (Claro / Oscuro) -->
+      <div class="flex items-center gap-2">
+        <button id="btn-theme" type="button" aria-label="Cambiar tema"
+          class="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-solar-400 hover:border-solar-500/50 transition-all focus:outline-none focus:ring-2 focus:ring-solar-500">
+          <span id="theme-icon">🌙</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- CONTENEDOR PRINCIPAL -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-20">
+
+    <!-- ======================================================================= -->
+    <!-- 1. SECCIÓN HERO                                                         -->
+    <!-- ======================================================================= -->
+    <section id="hero" class="pt-6 sm:pt-10 scroll-mt-20 space-y-8">
+      
+      <!-- Encabezado y Pregunta de Investigación -->
+      <div class="space-y-4 max-w-4xl">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-solar-500/10 border border-solar-500/30 text-solar-400">
+          <span class="w-2 h-2 rounded-full bg-solar-400 animate-pulse"></span>
+          Inteligencia Artificial Aplicada a Energía Sostenible
+        </div>
+
+        <h1 class="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-100 tracking-tight leading-tight">
+          Gestión inteligente de baterías solares con <span class="text-transparent bg-clip-text bg-gradient-to-r from-solar-400 to-amber-500">Aprendizaje por Refuerzo</span>
+        </h1>
+
+        <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800/90 shadow-xl backdrop-blur-sm">
+          <p class="text-xs uppercase tracking-wider font-semibold text-solar-400 mb-1">Pregunta de Investigación</p>
+          <blockquote class="text-base sm:text-lg text-slate-200 italic leading-relaxed">
+            «¿Puede un agente de Aprendizaje por Refuerzo (Q-Learning) gestionar la batería de una microrred rural en La Paz cubriendo más demanda y desgastando menos la batería que las reglas fijas?»
+          </blockquote>
+        </div>
+
+        <p class="text-sm sm:text-base text-slate-400 leading-relaxed">
+          Evaluación empírica sobre 10 años de datos horarios de radiación y temperatura (NASA POWER, 2015–2024) en el altiplano andino (~3,600 msnm), comparando el agente RL contra tres baselines heurísticos y el oráculo teórico de programación dinámica con información perfecta.
+        </p>
+      </div>
+
+      <!-- Tarjetas KPI (Cargadas dinámicamente de metricas.json en 2023-2024) -->
+      <div id="kpi-container" class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        
+        <!-- KPI 1: Cobertura Crítica -->
+        <div class="relative overflow-hidden rounded-2xl bg-gradient-to-b from-slate-900/90 to-slate-950 border border-slate-800 p-6 shadow-lg hover:border-solar-500/40 transition-colors">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-medium uppercase tracking-wider text-slate-400">Demanda Crítica Cubierta</span>
+            <span class="text-xs px-2 py-0.5 rounded-full font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Prueba 2023–2024</span>
+          </div>
+          <div class="flex items-baseline gap-2 mb-2">
+            <span id="kpi-cob-crit-agente" class="text-4xl font-extrabold text-solar-400 font-mono">--%</span>
+            <span class="text-xs text-slate-400 font-medium">Agente RL</span>
+          </div>
+          <div class="pt-3 border-t border-slate-800/80 text-xs text-slate-300 space-y-1">
+            <div class="flex justify-between">
+              <span class="text-slate-400">Baseline Voraz:</span>
+              <span id="kpi-cob-crit-voraz" class="font-mono text-red-400 font-bold">--%</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-400">Cota Óptima (Oráculo):</span>
+              <span id="kpi-cob-crit-oraculo" class="font-mono text-slate-300 font-bold">--%</span>
+            </div>
+          </div>
+          <div class="mt-3 text-xs text-emerald-400 font-medium flex items-center gap-1.5">
+            <span>↑</span>
+            <span>+15.75 p.p. de protección en cargas críticas vitales</span>
+          </div>
+        </div>
+
+        <!-- KPI 2: Ciclos y Desgaste de Batería -->
+        <div class="relative overflow-hidden rounded-2xl bg-gradient-to-b from-slate-900/90 to-slate-950 border border-slate-800 p-6 shadow-lg hover:border-solar-500/40 transition-colors">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-medium uppercase tracking-wider text-slate-400">Desgaste de Batería</span>
+            <span class="text-xs px-2 py-0.5 rounded-full font-bold bg-solar-500/20 text-solar-400 border border-solar-500/30">2 Años de Prueba</span>
+          </div>
+          <div class="flex items-baseline gap-2 mb-2">
+            <span id="kpi-ciclos-agente" class="text-4xl font-extrabold text-slate-100 font-mono">--</span>
+            <span class="text-xs text-slate-400 font-medium">ciclos útiles</span>
+          </div>
+          <div class="pt-3 border-t border-slate-800/80 text-xs text-slate-300 space-y-1">
+            <div class="flex justify-between">
+              <span class="text-slate-400">Voraz (mismo ciclado):</span>
+              <span id="kpi-ciclos-voraz" class="font-mono text-slate-300">-- ciclos</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-400">Eficiencia de uso:</span>
+              <span class="font-mono text-solar-400 font-bold">99.6% servido útil</span>
+            </div>
+          </div>
+          <div class="mt-3 text-xs text-solar-400 font-medium flex items-center gap-1.5">
+            <span>🛡️</span>
+            <span>Descargas estratégicas que evitan cortes nocturnos</span>
+          </div>
+        </div>
+
+        <!-- KPI 3: Proximidad al Óptimo -->
+        <div class="relative overflow-hidden rounded-2xl bg-gradient-to-b from-slate-900/90 to-slate-950 border border-slate-800 p-6 shadow-lg hover:border-solar-500/40 transition-colors">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-medium uppercase tracking-wider text-slate-400">Desempeño Frente al Óptimo</span>
+            <span class="text-xs px-2 py-0.5 rounded-full font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30">Brecha Teórica</span>
+          </div>
+          <div class="flex items-baseline gap-2 mb-2">
+            <span id="kpi-pct-optimo" class="text-4xl font-extrabold text-emerald-400 font-mono">--%</span>
+            <span class="text-xs text-slate-400 font-medium">del óptimo alcanzado</span>
+          </div>
+          <div class="pt-3 border-t border-slate-800/80 text-xs text-slate-300 space-y-1">
+            <div class="flex justify-between">
+              <span class="text-slate-400">Recompensa RL:</span>
+              <span id="kpi-rec-agente" class="font-mono text-solar-400 font-bold">--</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-400">Recompensa Oráculo:</span>
+              <span id="kpi-rec-oraculo" class="font-mono text-slate-300">--</span>
+            </div>
+          </div>
+          <div class="mt-3 text-xs text-emerald-400 font-medium flex items-center gap-1.5">
+            <span>✨</span>
+            <span>Supera a todas las heurísticas fijas en prueba ciega</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Mensaje de error si falla la carga inicial -->
+      <div id="hero-error" class="hidden p-4 rounded-xl bg-red-950/60 border border-red-500/50 text-red-200 text-sm"></div>
+    </section>
+
+
+    <!-- ======================================================================= -->
+    <!-- 2. SECCIÓN DATOS CLIMÁTICOS (NASA POWER)                               -->
+    <!-- ======================================================================= -->
+    <section id="datos" class="scroll-mt-20 space-y-6">
+      
+      <div class="border-b border-slate-800 pb-4">
+        <h2 class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-100 flex items-center gap-2">
+          <span>☀️</span> Datos Climáticos de La Paz (NASA POWER)
+        </h2>
+        <p class="text-sm text-slate-400 mt-1">
+          Serie histórica de 10 años (2015–2024, 87,672 horas consecutivas) de irradiación global horizontal (GHI) y temperatura a 2 m (T2M) para el Altiplano boliviano (-16.50°S, -68.15°W, ~3,600 msnm, huso UTC-4).
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Mapa de Calor (Hora Local x Mes) -->
+        <div class="lg:col-span-7 bg-slate-900/70 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-base font-semibold text-slate-200">Mapa de Calor: GHI Media (W/m²)</h3>
+              <span class="text-xs text-slate-400">Hora local × Mes</span>
+            </div>
+            <p class="text-xs text-slate-400 mb-4">
+              Distribución horaria media mensual. Se aprecia el intenso recurso solar diurno (hasta >850 W/m²) típico de la radiación directa en altura andina, con reducciones por nubosidad convectiva en época de lluvias (Dic–Mar).
+            </p>
+
+            <!-- Contenedor del Heatmap -->
+            <div class="overflow-x-auto pb-2">
+              <div id="heatmap-container" class="min-w-[420px]">
+                <!-- Se genera dinámicamente con JS -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Escala del Heatmap -->
+          <div class="mt-4 pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between text-xs text-slate-400 gap-2">
+            <span>Escala GHI:</span>
+            <div class="flex items-center gap-1.5">
+              <span>0 W/m²</span>
+              <div class="w-32 h-3 rounded bg-gradient-to-r from-slate-900 via-amber-700 to-amber-400 border border-slate-700"></div>
+              <span>≥ 800 W/m²</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Gráfico de Irradiación Diaria y Temperatura -->
+        <div class="lg:col-span-5 bg-slate-900/70 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-base font-semibold text-slate-200">Irradiación Diaria y Temperatura</h3>
+              <span class="text-xs text-slate-400">Media mensual + Banda P10–P90</span>
+            </div>
+            <p class="text-xs text-slate-400 mb-4">
+              Irradiación diaria media (kWh/m²/día) con dispersión interanual (P10–P90) y temperatura media ambiente mensual (°C).
+            </p>
+            
+            <div class="relative h-64 sm:h-72 w-full">
+              <canvas id="chart-clima"></canvas>
+            </div>
+          </div>
+
+          <div class="mt-4 pt-3 border-t border-slate-800/80 text-xs text-slate-400 flex items-center justify-between">
+            <span class="flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-solar-500"></span> Irradiación (kWh/m²/d)
+            </span>
+            <span class="flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-sky-400"></span> Temperatura (°C)
+            </span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Nota Metodológica de Datos y Demanda Simulada -->
+      <div class="p-4 rounded-xl bg-slate-900/40 border border-slate-800/80 text-xs text-slate-300 space-y-1">
+        <p class="font-semibold text-slate-200">ℹ️ Nota sobre datos y demanda simulada:</p>
+        <p class="text-slate-400 leading-relaxed">
+          Los datos meteorológicos corresponden a NASA POWER (v2.0, ERA5 reanálisis). La demanda eléctrica se simula para una vivienda/centro rural estándar en La Paz con dos categorías diferenciadas:
+          <strong>cargas críticas</strong> (~1.6 kWh/día: refrigeración básica continua, iluminación esencial y comunicaciones con picos matutinos 06–08 h y nocturnos 18–22 h) y
+          <strong>cargas no críticas</strong> (~1.8 kWh/día: bombeo de agua, talleres y electrodomésticos concentrados de 09–17 h y 18–21 h), con factor de fin de semana (+15%) y ruido estocástico log-normal (~10%), generada una sola vez con semilla fija (42).
+        </p>
+      </div>
+
+      <div id="datos-error" class="hidden p-4 rounded-xl bg-red-950/60 border border-red-500/50 text-red-200 text-sm"></div>
+    </section>
+
+
+    <!-- ======================================================================= -->
+    <!-- 3. SECCIÓN MODELO (MDP)                                                -->
+    <!-- ======================================================================= -->
+    <section id="modelo" class="scroll-mt-20 space-y-6">
+      
+      <div class="border-b border-slate-800 pb-4">
+        <h2 class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-100 flex items-center gap-2">
+          <span>🧠</span> Formulación del Problema (MDP)
+        </h2>
+        <p class="text-sm text-slate-400 mt-1">
+          Proceso de Decisión de Markov (MDP) con horizonte semanal de 168 horas discretas, dinámica física calibrada para el Altiplano y espacio de estados compacto.
+        </p>
+      </div>
+
+      <!-- 4 Tarjetas Dinámicas leídas de config.json -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        
+        <!-- Tarjeta 1: Espacio de Estados -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col justify-between">
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold uppercase tracking-wider text-solar-400">1. Estado ($S$)</span>
+              <span id="mdp-estados-total" class="font-mono text-xs px-2 py-0.5 rounded bg-solar-500/10 border border-solar-500/30 text-solar-400 font-bold">-- estados</span>
+            </div>
+            <h3 class="text-base font-bold text-slate-100">Variables de Decisión</h3>
+            <p class="text-xs text-slate-400">Tupla discreta observada cada hora:</p>
+            <ul class="text-xs text-slate-300 space-y-2 font-mono">
+              <li class="flex items-center justify-between border-b border-slate-800 pb-1">
+                <span class="text-slate-400 font-sans">Hora del día:</span>
+                <span id="mdp-num-horas" class="font-bold text-slate-200">24 valores</span>
+              </li>
+              <li class="flex items-center justify-between border-b border-slate-800 pb-1">
+                <span class="text-slate-400 font-sans">SoC Batería:</span>
+                <span id="mdp-num-soc" class="font-bold text-slate-200">10 niveles</span>
+              </li>
+              <li class="flex items-center justify-between border-b border-slate-800 pb-1">
+                <span class="text-slate-400 font-sans">Radiación actual:</span>
+                <span id="mdp-num-ghi" class="font-bold text-slate-200">4 niveles</span>
+              </li>
+              <li class="flex items-center justify-between">
+                <span class="text-slate-400 font-sans">Rad. día anterior:</span>
+                <span id="mdp-num-ghi-ayer" class="font-bold text-slate-200">3 terciles</span>
+              </li>
+            </ul>
+          </div>
+          <div class="mt-4 pt-3 border-t border-slate-800 text-[11px] text-slate-400">
+            Umbrales calculados exclusivamente sobre los años de entrenamiento (2015–2021).
+          </div>
+        </div>
+
+        <!-- Tarjeta 2: Espacio de Acciones -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col justify-between">
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold uppercase tracking-wider text-solar-400">2. Acciones ($A$)</span>
+              <span class="font-mono text-xs px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 font-bold">3 Modos</span>
+            </div>
+            <h3 class="text-base font-bold text-slate-100">Modos de Operación</h3>
+            <div class="text-xs text-slate-300 space-y-2">
+              <div class="p-2 rounded-lg bg-slate-950/60 border border-slate-800/80">
+                <span class="font-bold text-amber-400 font-mono">0 · ALMACENAR:</span>
+                <p class="text-[11px] text-slate-400 mt-0.5">Solo atiende cargas críticas con FV y batería. Las no críticas se posponen y el excedente FV recarga la batería.</p>
+              </div>
+              <div class="p-2 rounded-lg bg-slate-950/60 border border-slate-800/80">
+                <span class="font-bold text-sky-400 font-mono">1 · EQUILIBRAR:</span>
+                <p class="text-[11px] text-slate-400 mt-0.5">Críticas servidas con FV y batería; no críticas solo se cubren con FV directa, sin descargar la batería.</p>
+              </div>
+              <div class="p-2 rounded-lg bg-slate-950/60 border border-slate-800/80">
+                <span class="font-bold text-emerald-400 font-mono">2 · CONSUMIR:</span>
+                <p class="text-[11px] text-slate-400 mt-0.5">Ambas demandas (crítica y no crítica) se atienden con FV y batería al máximo. Excedente carga batería.</p>
+              </div>
+            </div>
+          </div>
+          <div class="mt-4 pt-3 border-t border-slate-800 text-[11px] text-slate-400">
+            En los 3 modos el excedente FV restante se almacena o vierte.
+          </div>
+        </div>
+
+        <!-- Tarjeta 3: Función de Recompensa -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col justify-between">
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold uppercase tracking-wider text-solar-400">3. Recompensa ($R$)</span>
+              <span class="font-mono text-xs px-2 py-0.5 rounded bg-solar-500/10 border border-solar-500/30 text-solar-400 font-bold">Horaria</span>
+            </div>
+            <h3 class="text-base font-bold text-slate-100">Pesos Multiobjetivo</h3>
+            <p class="text-xs text-slate-400">Penalización horaria continua:</p>
+            <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-xs font-mono text-slate-200">
+              $R_t = -(w_c E_{nc}^{crit} + w_{nc} E_{nc}^{nc} + w_b E_{bat})$
+            </div>
+            <ul class="text-xs text-slate-300 space-y-2 font-mono">
+              <li class="flex items-center justify-between border-b border-slate-800 pb-1">
+                <span class="text-slate-400 font-sans">Déficit crítico ($w_c$):</span>
+                <span id="mdp-peso-crit" class="font-bold text-red-400">-10.0 / kWh</span>
+              </li>
+              <li class="flex items-center justify-between border-b border-slate-800 pb-1">
+                <span class="text-slate-400 font-sans">Déficit no crítico ($w_{nc}$):</span>
+                <span id="mdp-peso-nc" class="font-bold text-amber-400">-1.0 / kWh</span>
+              </li>
+              <li class="flex items-center justify-between">
+                <span class="text-slate-400 font-sans">Degradación batería ($w_b$):</span>
+                <span id="mdp-peso-bat" class="font-bold text-slate-300">-0.10 / kWh</span>
+              </li>
+            </ul>
+          </div>
+          <div class="mt-4 pt-3 border-t border-slate-800 text-[11px] text-slate-400">
+            Prioriza salvar cargas críticas con ratio 10:1 y evita ciclado fútil.
+          </div>
+        </div>
+
+        <!-- Tarjeta 4: Dinámica Física de Transición -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col justify-between">
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold uppercase tracking-wider text-solar-400">4. Física y Transición</span>
+              <span class="font-mono text-xs px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 font-bold">Paso Puro</span>
+            </div>
+            <h3 class="text-base font-bold text-slate-100">Generación y Almacén</h3>
+            <ul class="text-xs text-slate-300 space-y-2 font-mono">
+              <li class="flex items-center justify-between border-b border-slate-800 pb-1">
+                <span class="text-slate-400 font-sans">Potencia FV pico:</span>
+                <span id="mdp-fv-pico" class="font-bold text-solar-400">0.75 kWp</span>
+              </li>
+              <li class="flex items-center justify-between border-b border-slate-800 pb-1">
+                <span class="text-slate-400 font-sans">Rendimiento (PR):</span>
+                <span id="mdp-fv-pr" class="font-bold text-slate-200">0.80</span>
+              </li>
+              <li class="flex items-center justify-between border-b border-slate-800 pb-1">
+                <span class="text-slate-400 font-sans">Capacidad Batería:</span>
+                <span id="mdp-bat-cap" class="font-bold text-slate-200">2.4 kWh nom.</span>
+              </li>
+              <li class="flex items-center justify-between border-b border-slate-800 pb-1">
+                <span class="text-slate-400 font-sans">Rango SoC admisible:</span>
+                <span id="mdp-bat-soc-rango" class="font-bold text-slate-200">20% – 100%</span>
+              </li>
+              <li class="flex items-center justify-between">
+                <span class="text-slate-400 font-sans">Eficiencia C/D:</span>
+                <span id="mdp-bat-eficiencia" class="font-bold text-slate-200">0.95 / 0.95</span>
+              </li>
+            </ul>
+          </div>
+          <div class="mt-4 pt-3 border-t border-slate-800 text-[11px] text-slate-400">
+            Corrección térmica NOCT (-0.4%/°C) y balance de energía exacto.
+          </div>
+        </div>
+
+      </div>
+
+      <div id="modelo-error" class="hidden p-4 rounded-xl bg-red-950/60 border border-red-500/50 text-red-200 text-sm"></div>
+    </section>
+
+
+    <!-- ======================================================================= -->
+    <!-- 4. SECCIÓN ENTRENAMIENTO                                               -->
+    <!-- ======================================================================= -->
+    <section id="entrenamiento" class="scroll-mt-20 space-y-6">
+      
+      <div class="border-b border-slate-800 pb-4">
+        <h2 class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-100 flex items-center gap-2">
+          <span>📈</span> Proceso de Entrenamiento (Q-Learning Tabular)
+        </h2>
+        <p class="text-sm text-slate-400 mt-1">
+          Evolución del aprendizaje durante 60,000 episodios (semanas aleatorias de 2015–2021) evaluado en el año 2022 de validación.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Curva de Aprendizaje -->
+        <div class="lg:col-span-8 bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-base font-semibold text-slate-200">Curva de Aprendizaje en Validación (2022)</h3>
+              <span class="text-xs px-2 py-0.5 rounded bg-solar-500/10 border border-solar-500/30 text-solar-400 font-mono">Cada 500 ep</span>
+            </div>
+            <p class="text-xs text-slate-400 mb-4">
+              Recompensa acumulada anual en el conjunto de validación sin exploración ($\epsilon=0$). Se observa la convergencia monótona hacia el óptimo conforme $\epsilon$ decrece de 1.0 a 0.05.
+            </p>
+
+            <div class="relative h-72 sm:h-80 w-full">
+              <canvas id="chart-aprendizaje"></canvas>
+            </div>
+          </div>
+
+          <div class="mt-4 pt-3 border-t border-slate-800/80 text-xs text-slate-400 flex flex-wrap items-center justify-between gap-3">
+            <span class="flex items-center gap-1.5">
+              <span class="w-3 h-0.5 bg-solar-500 inline-block"></span> Recompensa Validación (Año 2022)
+            </span>
+            <span class="font-mono text-slate-300">
+              Mejor Recompensa: <span id="train-best-reward" class="text-solar-400 font-bold">--</span> (Ep. <span id="train-best-ep">--</span>)
+            </span>
+          </div>
+        </div>
+
+        <!-- Tabla de Hiperparámetros de Q-Learning -->
+        <div class="lg:col-span-4 bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-base font-semibold text-slate-200">Hiperparámetros</h3>
+              <span class="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">Q-Learning</span>
+            </div>
+            <p class="text-xs text-slate-400 mb-4">Configuración del algoritmo y política de exploración lineal:</p>
+
+            <div class="overflow-hidden rounded-xl border border-slate-800 bg-slate-950/50">
+              <table class="w-full text-left text-xs">
+                <tbody class="divide-y divide-slate-800/80 font-mono">
+                  <tr>
+                    <td class="py-2 px-3 text-slate-400 font-sans">Episodios totales</td>
+                    <td id="param-episodios" class="py-2 px-3 text-right font-bold text-slate-200">60,000</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 px-3 text-slate-400 font-sans">Duración episodio</td>
+                    <td id="param-horas-ep" class="py-2 px-3 text-right font-bold text-slate-200">168 h (1 sem)</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 px-3 text-slate-400 font-sans">Tasa de aprendizaje ($\alpha$)</td>
+                    <td id="param-alfa" class="py-2 px-3 text-right font-bold text-slate-200">0.10</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 px-3 text-slate-400 font-sans">Factor descuento ($\gamma$)</td>
+                    <td id="param-gamma" class="py-2 px-3 text-right font-bold text-slate-200">0.99</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 px-3 text-slate-400 font-sans">Exploración ($\epsilon_{ini} \to \epsilon_{fin}$)</td>
+                    <td id="param-epsilon" class="py-2 px-3 text-right font-bold text-solar-400">1.0 $\to$ 0.05</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 px-3 text-slate-400 font-sans">Decay de $\epsilon$</td>
+                    <td id="param-decay" class="py-2 px-3 text-right font-bold text-slate-200">Primer 70%</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 px-3 text-slate-400 font-sans">Años entrenamiento</td>
+                    <td id="param-train-years" class="py-2 px-3 text-right font-bold text-slate-200">2015–2021</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 px-3 text-slate-400 font-sans">Año validación</td>
+                    <td id="param-val-year" class="py-2 px-3 text-right font-bold text-slate-200">2022</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 px-3 text-slate-400 font-sans">Semilla aleatoria</td>
+                    <td id="param-semilla" class="py-2 px-3 text-right font-bold text-slate-200">42</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="mt-4 pt-3 border-t border-slate-800 text-[11px] text-slate-400 leading-relaxed">
+            Se conserva y exporta la mejor tabla Q validada en 2022 para la evaluación final en 2023–2024.
+          </div>
+        </div>
+
+      </div>
+
+      <div id="entrenamiento-error" class="hidden p-4 rounded-xl bg-red-950/60 border border-red-500/50 text-red-200 text-sm"></div>
+    </section>
+
+
+    <!-- ======================================================================= -->
+    <!-- 5. SECCIÓN RESULTADOS Y COMPARATIVA                                    -->
+    <!-- ======================================================================= -->
+    <section id="resultados" class="scroll-mt-20 space-y-6">
+      
+      <div class="border-b border-slate-800 pb-4">
+        <h2 class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-100 flex items-center gap-2">
+          <span>🏆</span> Resultados y Comparativa de Estrategias
+        </h2>
+        <p class="text-sm text-slate-400 mt-1">
+          Evaluación ciega sobre los años de prueba 2023–2024 (17,540 horas). Compara el agente de RL frente a las 3 heurísticas operativas y el oráculo DP.
+        </p>
+      </div>
+
+      <!-- Barra de Filtros (Año y Época) -->
+      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-md flex flex-wrap items-center justify-between gap-4">
+        
+        <div class="flex flex-wrap items-center gap-4">
+          <!-- Selector de Año -->
+          <div class="flex items-center gap-2">
+            <label for="select-periodo" class="text-xs font-semibold uppercase tracking-wider text-slate-400">Periodo:</label>
+            <select id="select-periodo" class="bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-solar-500 focus:outline-none">
+              <option value="Prueba 2023-2024" selected>Prueba 2023–2024 (Ambos)</option>
+              <option value="Año 2023">Año 2023</option>
+              <option value="Año 2024">Año 2024</option>
+            </select>
+          </div>
+
+          <!-- Selector de Época -->
+          <div class="flex items-center gap-2">
+            <label for="select-epoca" class="text-xs font-semibold uppercase tracking-wider text-slate-400">Época:</label>
+            <select id="select-epoca" class="bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-solar-500 focus:outline-none">
+              <option value="anual" selected>Todas las épocas (Anual)</option>
+              <option value="seca">Época Seca (May–Sep)</option>
+              <option value="lluviosa">Época Lluviosa (Nov–Mar)</option>
+              <option value="transicion">Transición (Abr, Oct)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Selector de Métrica para el Gráfico -->
+        <div class="flex items-center gap-2">
+          <label for="select-metrica-grafico" class="text-xs font-semibold uppercase tracking-wider text-solar-400">Métrica del Gráfico:</label>
+          <select id="select-metrica-grafico" class="bg-slate-950 border border-solar-500/40 text-solar-300 font-medium text-xs rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-solar-500 focus:outline-none">
+            <option value="pct_critica_cubierta" selected>Demanda Crítica Cubierta (%)</option>
+            <option value="pct_total_cubierta">Demanda Total Cubierta (%)</option>
+            <option value="nosrv_crit_kwh">Déficit Crítico No Servido (kWh)</option>
+            <option value="ciclos_bateria">Ciclos de Batería Equivalentes</option>
+            <option value="vertido_fv_kwh">Vertido Solar FV (kWh)</option>
+            <option value="recompensa_total">Recompensa Total Multiobjetivo</option>
+          </select>
+        </div>
+
+      </div>
+
+      <!-- Gráfico de Barras Comparativo -->
+      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg">
+        <div class="flex items-center justify-between mb-3">
+          <h3 id="titulo-grafico-resultados" class="text-base font-semibold text-slate-200">
+            Comparativa: Demanda Crítica Cubierta (%)
+          </h3>
+          <span class="text-xs text-slate-400">5 Estrategias</span>
+        </div>
+        
+        <div class="relative h-64 sm:h-72 w-full">
+          <canvas id="chart-resultados-barras"></canvas>
+        </div>
+      </div>
+
+      <!-- Tabla Comparativa de Estrategias -->
+      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-3">
+        <div class="flex items-center justify-between">
+          <h3 class="text-base font-semibold text-slate-200">Tabla Detallada de Desempeño</h3>
+          <span class="text-xs text-slate-400">Resaltado el Agente Q-Learning</span>
+        </div>
+
+        <div class="overflow-x-auto rounded-xl border border-slate-800">
+          <table class="w-full text-left text-xs whitespace-nowrap">
+            <thead class="bg-slate-950/80 text-slate-400 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-800">
+              <tr>
+                <th class="py-3 px-3">Estrategia</th>
+                <th class="py-3 px-3 text-right">Cob. Crítica (%)</th>
+                <th class="py-3 px-3 text-right">Cob. No Crítica (%)</th>
+                <th class="py-3 px-3 text-right">Cob. Total (%)</th>
+                <th class="py-3 px-3 text-right">No Srv Crítica (kWh)</th>
+                <th class="py-3 px-3 text-right">No Srv Total (kWh)</th>
+                <th class="py-3 px-3 text-right">Ciclos Batería</th>
+                <th class="py-3 px-3 text-right">Vertido FV (kWh)</th>
+                <th class="py-3 px-3 text-right">Recompensa</th>
+                <th class="py-3 px-3 text-right">% Óptimo</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-metricas-body" class="divide-y divide-slate-800 font-mono">
+              <!-- Se llena dinámicamente con JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="resultados-error" class="hidden p-4 rounded-xl bg-red-950/60 border border-red-500/50 text-red-200 text-sm"></div>
+    </section>
+
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- PIE DE PÁGINA                                                             -->
+  <!-- ========================================================================= -->
+  <footer class="border-t border-slate-800/80 bg-slate-950 text-slate-400 py-10 mt-20 text-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div>
+        <p class="font-semibold text-slate-300">Proyecto Inteligencia Artificial: Gestión de Microrredes Solares</p>
+        <p class="text-slate-400 mt-0.5">La Paz, Bolivia · Altiplano Central (3,600 msnm) · Q-Learning vs Baselines & DP</p>
+      </div>
+      <div class="text-right">
+        <p>Datos meteorológicos: <span class="text-slate-300">NASA POWER (2015–2024)</span></p>
+        <p class="text-slate-400">Implementación de física pura y Q-Learning en Python/Gymnasium</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Script principal de la aplicación -->
+  <script src="app.js"></script>
+</body>
+</html>

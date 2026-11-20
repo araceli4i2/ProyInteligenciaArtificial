@@ -228,26 +228,26 @@ def evaluar_periodo_completo(anios: List[int] = ANIOS_PRUEBA) -> pd.DataFrame:
         # Imprimir tabla del bloque
         imprimir_tabla_metricas(m_bloque, titulo=f"EVALUACIÓN: {nombre_bloque.upper()}")
 
-        # Desglose por época si es el periodo completo de prueba (2023-2024)
-        if nombre_bloque == "Prueba 2023-2024":
-            for ep_nombre in ["lluviosa", "seca", "transicion"]:
-                m_ep = {k: metricas(v, epoca=ep_nombre) for k, v in dict_trazas.items()}
-                r_v_ep = m_ep["Voraz"]["recompensa_total"]
-                r_o_ep = m_ep["Oráculo (DP)"]["recompensa_total"]
-                den_ep = r_o_ep - r_v_ep if abs(r_o_ep - r_v_ep) > 1e-6 else 1.0
+        # Desglose por época climática para cada bloque
+        for ep_nombre in ["lluviosa", "seca", "transicion"]:
+            m_ep = {k: metricas(v, epoca=ep_nombre) for k, v in dict_trazas.items()}
+            r_v_ep = m_ep["Voraz"]["recompensa_total"]
+            r_o_ep = m_ep["Oráculo (DP)"]["recompensa_total"]
+            den_ep = r_o_ep - r_v_ep if abs(r_o_ep - r_v_ep) > 1e-6 else 1.0
 
-                for est, m in m_ep.items():
-                    r_act = m["recompensa_total"]
-                    pct_optimo = ((r_act - r_v_ep) / den_ep) * 100.0
-                    filas_resultados.append(
-                        {
-                            "periodo": nombre_bloque,
-                            "epoca": ep_nombre,
-                            "estrategia": est,
-                            **m,
-                            "pct_optimo_alcanzado": pct_optimo,
-                        }
-                    )
+            for est, m in m_ep.items():
+                r_act = m["recompensa_total"]
+                pct_optimo = ((r_act - r_v_ep) / den_ep) * 100.0
+                filas_resultados.append(
+                    {
+                        "periodo": nombre_bloque,
+                        "epoca": ep_nombre,
+                        "estrategia": est,
+                        **m,
+                        "pct_optimo_alcanzado": pct_optimo,
+                    }
+                )
+            if nombre_bloque == "Prueba 2023-2024":
                 imprimir_tabla_metricas(m_ep, titulo=f"ÉPOCA: {ep_nombre.upper()} (2023-2024)")
 
     # 4. Guardar archivo final de métricas
