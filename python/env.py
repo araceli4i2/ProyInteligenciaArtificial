@@ -107,165 +107,167 @@ def paso_fisico(
     de_bateria = 0.0
     vertido = 0.0
 
-    # Capacidad disponible para descarga y espacio disponible para carga en batería
-    energia_desc_disp = max(0.0, (soc - SOC_MIN) * c_nom)
-    # Potencia máxima que puede extraerse de la batería (limitada por inversor y SoC)
-    max_extraer = min(POTENCIA_MAX_BATERIA, energia_desc_disp)
-    # Potencia máxima que la batería puede entregar a las cargas (afectada por eficiencia)
-    max_entregar = max_extraer * EFICIENCIA_DESCARGA
+    # Determinar si soc es un arreglo numpy (ej. grid de programación dinámica) o un escalar
+    es_array = isinstance(soc, np.ndarray)
+    zeros = np.zeros_like(soc) if es_array else 0.0
 
-    espacio_libre = max(0.0, (SOC_MAX - soc) * c_nom)
+    # Capacidad disponible para descarga y espacio disponible para carga en batería
+    energia_desc_disp = np.maximum(0.0, (soc - SOC_MIN) * c_nom)
+    max_extraer = np.minimum(POTENCIA_MAX_BATERIA, energia_desc_disp)
+    max_entregar = max_extraer * EFICIENCIA_DESCARGA
+    espacio_libre = np.maximum(0.0, (SOC_MAX - soc) * c_nom)
 
     # --------------------------------------------------------------------------
     # ACCIÓN 0: ALMACENAR
     # --------------------------------------------------------------------------
     if accion == ACCION_ALMACENAR:
-        # Cargas no críticas no se sirven en absoluto
-        servido_nc = 0.0
-        nosrv_nc = dem_nc
+        servido_nc = zeros
+        nosrv_nc = dem_nc if not es_array else np.full_like(soc, dem_nc)
 
-        # Cargas críticas: atendidas primero con FV
         servido_crit_fv = min(efv, dem_crit)
         fv_rem = efv - servido_crit_fv
         falta_crit = dem_crit - servido_crit_fv
 
         if falta_crit > 0.0:
-            # Si falta crítica, se descarga batería
-            entregado = min(max_entregar, falta_crit)
+            entregado = np.minimum(max_entregar, falta_crit)
             extraido = entregado / EFICIENCIA_DESCARGA
             servido_crit = servido_crit_fv + entregado
             nosrv_crit = falta_crit - entregado
             de_bateria = extraido
-            a_bateria = 0.0
-            vertido = 0.0
+            a_bateria = zeros
+            vertido = zeros
         elif fv_rem > 0.0:
-            # Si sobra FV, se carga la batería con el excedente
-            servido_crit = servido_crit_fv
-            nosrv_crit = 0.0
-            a_bateria = min(fv_rem, POTENCIA_MAX_BATERIA, espacio_libre / EFICIENCIA_CARGA)
+            servido_crit = servido_crit_fv if not es_array else np.full_like(soc, servido_crit_fv)
+            nosrv_crit = zeros
+            a_bateria = np.minimum(fv_rem, np.minimum(POTENCIA_MAX_BATERIA, espacio_libre / EFICIENCIA_CARGA))
             vertido = fv_rem - a_bateria
-            de_bateria = 0.0
+            de_bateria = zeros
         else:
-            servido_crit = servido_crit_fv
-            nosrv_crit = 0.0
-            a_bateria = 0.0
-            de_bateria = 0.0
-            vertido = 0.0
+            servido_crit = servido_crit_fv if not es_array else np.full_like(soc, servido_crit_fv)
+            nosrv_crit = zeros
+            a_bateria = zeros
+            de_bateria = zeros
+            vertido = zeros
 
     # --------------------------------------------------------------------------
     # ACCIÓN 1: EQUILIBRAR
     # --------------------------------------------------------------------------
     elif accion == ACCION_EQUILIBRAR:
-        # 1. FV atiende críticas
         servido_crit_fv = min(efv, dem_crit)
         fv_rem1 = efv - servido_crit_fv
         falta_crit = dem_crit - servido_crit_fv
 
-        # 2. FV remanente atiende no críticas (las no críticas NO usan batería)
         servido_nc_fv = min(fv_rem1, dem_nc)
         fv_rem2 = fv_rem1 - servido_nc_fv
-        servido_nc = servido_nc_fv
-        nosrv_nc = dem_nc - servido_nc_fv
+        servido_nc = servido_nc_fv if not es_array else np.full_like(soc, servido_nc_fv)
+        nosrv_nc = (dem_nc - servido_nc_fv) if not es_array else np.full_like(soc, dem_nc - servido_nc_fv)
 
-        # 3. Si falta crítica, se cubre con batería
         if falta_crit > 0.0:
-            entregado = min(max_entregar, falta_crit)
+            entregado = np.minimum(max_entregar, falta_crit)
             extraido = entregado / EFICIENCIA_DESCARGA
             servido_crit = servido_crit_fv + entregado
             nosrv_crit = falta_crit - entregado
             de_bateria = extraido
-            a_bateria = 0.0
-            vertido = 0.0
-        # 4. Si sobra FV tras atender críticas y no críticas, carga batería
+            a_bateria = zeros
+            vertido = zeros
         elif fv_rem2 > 0.0:
-            servido_crit = servido_crit_fv
-            nosrv_crit = 0.0
-            a_bateria = min(fv_rem2, POTENCIA_MAX_BATERIA, espacio_libre / EFICIENCIA_CARGA)
+            servido_crit = servido_crit_fv if not es_array else np.full_like(soc, servido_crit_fv)
+            nosrv_crit = zeros
+            a_bateria = np.minimum(fv_rem2, np.minimum(POTENCIA_MAX_BATERIA, espacio_libre / EFICIENCIA_CARGA))
             vertido = fv_rem2 - a_bateria
-            de_bateria = 0.0
+            de_bateria = zeros
         else:
-            servido_crit = servido_crit_fv
-            nosrv_crit = 0.0
-            a_bateria = 0.0
-            de_bateria = 0.0
-            vertido = 0.0
+            servido_crit = servido_crit_fv if not es_array else np.full_like(soc, servido_crit_fv)
+            nosrv_crit = zeros
+            a_bateria = zeros
+            de_bateria = zeros
+            vertido = zeros
 
     # --------------------------------------------------------------------------
     # ACCIÓN 2: CONSUMIR
     # --------------------------------------------------------------------------
     elif accion == ACCION_CONSUMIR:
-        # 1. FV atiende críticas
         servido_crit_fv = min(efv, dem_crit)
         fv_rem1 = efv - servido_crit_fv
         falta_crit = dem_crit - servido_crit_fv
 
-        # 2. FV remanente atiende no críticas
         servido_nc_fv = min(fv_rem1, dem_nc)
         fv_rem2 = fv_rem1 - servido_nc_fv
         falta_nc = dem_nc - servido_nc_fv
 
-        # 3. Descarga de batería si falta crítica o no crítica
         if (falta_crit + falta_nc) > 0.0:
-            # Prioridad de batería: primero críticas
-            entregado_crit = min(max_entregar, falta_crit)
+            entregado_crit = np.minimum(max_entregar, falta_crit)
             extraido_crit = entregado_crit / EFICIENCIA_DESCARGA
             servido_crit = servido_crit_fv + entregado_crit
             nosrv_crit = falta_crit - entregado_crit
 
-            # Segundo: no críticas con el remanente entregable de batería
             entregable_nc = max_entregar - entregado_crit
-            entregado_nc = min(entregable_nc, falta_nc)
+            entregado_nc = np.minimum(entregable_nc, falta_nc)
             extraido_nc = entregado_nc / EFICIENCIA_DESCARGA
             servido_nc = servido_nc_fv + entregado_nc
             nosrv_nc = falta_nc - entregado_nc
 
             de_bateria = extraido_crit + extraido_nc
-            a_bateria = 0.0
-            vertido = 0.0
-        # 4. Si sobra FV, carga batería
+            a_bateria = zeros
+            vertido = zeros
         elif fv_rem2 > 0.0:
-            servido_crit = servido_crit_fv
-            nosrv_crit = 0.0
-            servido_nc = servido_nc_fv
-            nosrv_nc = 0.0
-            a_bateria = min(fv_rem2, POTENCIA_MAX_BATERIA, espacio_libre / EFICIENCIA_CARGA)
+            servido_crit = servido_crit_fv if not es_array else np.full_like(soc, servido_crit_fv)
+            nosrv_crit = zeros
+            servido_nc = servido_nc_fv if not es_array else np.full_like(soc, servido_nc_fv)
+            nosrv_nc = zeros
+            a_bateria = np.minimum(fv_rem2, np.minimum(POTENCIA_MAX_BATERIA, espacio_libre / EFICIENCIA_CARGA))
             vertido = fv_rem2 - a_bateria
-            de_bateria = 0.0
+            de_bateria = zeros
         else:
-            servido_crit = servido_crit_fv
-            nosrv_crit = 0.0
-            servido_nc = servido_nc_fv
-            nosrv_nc = 0.0
-            a_bateria = 0.0
-            de_bateria = 0.0
-            vertido = 0.0
+            servido_crit = servido_crit_fv if not es_array else np.full_like(soc, servido_crit_fv)
+            nosrv_crit = zeros
+            servido_nc = servido_nc_fv if not es_array else np.full_like(soc, servido_nc_fv)
+            nosrv_nc = zeros
+            a_bateria = zeros
+            de_bateria = zeros
+            vertido = zeros
     else:
         raise ValueError(f"Acción inválida: {accion}. Debe ser 0 (ALMACENAR), 1 (EQUILIBRAR) o 2 (CONSUMIR).")
 
     # 4. Actualización del Estado de Carga (SoC)
-    # Lo que entra a la batería se almacena con eficiencia de carga (a_bateria * EFICIENCIA_CARGA)
-    # Lo que sale de la batería es exactamente de_bateria
     delta_soc = (a_bateria * EFICIENCIA_CARGA - de_bateria) / c_nom
-    soc_nuevo = float(np.clip(soc + delta_soc, SOC_MIN, SOC_MAX))
+    if es_array:
+        soc_nuevo = np.clip(soc + delta_soc, SOC_MIN, SOC_MAX)
+    else:
+        soc_nuevo = float(np.clip(soc + delta_soc, SOC_MIN, SOC_MAX))
 
     # 5. Cálculo de Recompensa
     kwh_bateria = a_bateria + de_bateria
-    recompensa = float(
-        -(PESO_NO_SRV_CRIT * nosrv_crit + PESO_NO_SRV_NC * nosrv_nc + PESO_BATERIA * kwh_bateria)
-    )
+    recompensa = -(PESO_NO_SRV_CRIT * nosrv_crit + PESO_NO_SRV_NC * nosrv_nc + PESO_BATERIA * kwh_bateria)
+    if not es_array:
+        recompensa = float(recompensa)
 
-    info = {
-        "fv_kw": float(fv_kw),
-        "fv_servido_directo": float(efv - a_bateria - vertido),
-        "servido_crit": float(servido_crit),
-        "servido_nc": float(servido_nc),
-        "nosrv_crit": float(nosrv_crit),
-        "nosrv_nc": float(nosrv_nc),
-        "a_bateria": float(a_bateria),
-        "de_bateria": float(de_bateria),
-        "vertido": float(vertido),
-        "recompensa": float(recompensa),
-    }
+    if es_array:
+        info = {
+            "fv_kw": float(fv_kw),
+            "fv_servido_directo": efv - a_bateria - vertido,
+            "servido_crit": servido_crit,
+            "servido_nc": servido_nc,
+            "nosrv_crit": nosrv_crit,
+            "nosrv_nc": nosrv_nc,
+            "a_bateria": a_bateria,
+            "de_bateria": de_bateria,
+            "vertido": vertido,
+            "recompensa": recompensa,
+        }
+    else:
+        info = {
+            "fv_kw": float(fv_kw),
+            "fv_servido_directo": float(efv - a_bateria - vertido),
+            "servido_crit": float(servido_crit),
+            "servido_nc": float(servido_nc),
+            "nosrv_crit": float(nosrv_crit),
+            "nosrv_nc": float(nosrv_nc),
+            "a_bateria": float(a_bateria),
+            "de_bateria": float(de_bateria),
+            "vertido": float(vertido),
+            "recompensa": float(recompensa),
+        }
 
     return soc_nuevo, info
 
