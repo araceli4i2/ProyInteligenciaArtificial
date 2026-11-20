@@ -1,0 +1,80 @@
+{
+  "fotovoltaico": {
+    "potencia_pico_kw": 0.75,
+    "potencia_pico_inicial_kw": 1.2,
+    "rendimiento_pr": 0.8,
+    "coef_temperatura_por_c": -0.004,
+    "temp_ref_stc_c": 25.0,
+    "temp_noct_c": 45.0,
+    "temp_amb_noct_c": 20.0,
+    "irrad_noct_w_m2": 800.0
+  },
+  "bateria": {
+    "capacidad_nominal_kwh": 2.4,
+    "capacidad_inicial_kwh": 4.8,
+    "capacidad_util_kwh": 1.92,
+    "soc_min": 0.2,
+    "soc_max": 1.0,
+    "soc_inicial": 0.5,
+    "eficiencia_carga": 0.95,
+    "eficiencia_descarga": 0.95,
+    "potencia_max_kw": 2.0
+  },
+  "demanda": {
+    "critica_diaria_kwh": 1.6,
+    "no_critica_diaria_kwh": 1.8,
+    "total_diaria_kwh": 3.4,
+    "factor_fin_de_semana": 1.15,
+    "sigma_ruido": 0.1
+  },
+  "recompensa": {
+    "peso_no_srv_crit": 10.0,
+    "peso_no_srv_nc": 1.0,
+    "peso_bateria": 0.1
+  },
+  "discretizacion": {
+    "num_horas": 24,
+    "num_soc": 10,
+    "num_ghi": 4,
+    "num_ghi_ayer": 3,
+    "total_estados": 2880,
+    "umbral_noche_ghi_w_m2": 5.0,
+    "umbrales_ghi_diurno_w_m2": [
+      322.4,
+      675.27
+    ],
+    "umbrales_ghi_ayer_wh_m2": [
+      5528.48,
+      6333.31
+    ]
+  },
+  "division_temporal": {
+    "entrenamiento": [
+      2015,
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021
+    ],
+    "validacion": [
+      2022
+    ],
+    "prueba": [
+      2023,
+      2024
+    ]
+  },
+  "q_learning": {
+    "episodios": 60000,
+    "horas_por_episodio": 168,
+    "alfa": 0.1,
+    "gamma": 0.99,
+    "epsilon_inicial": 1.0,
+    "epsilon_final": 0.05,
+    "fraccion_decay": 0.7,
+    "intervalo_evaluacion": 500,
+    "semilla": 42
+  }
+}
