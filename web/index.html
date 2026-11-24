@@ -36,6 +36,17 @@
   <!-- Chart.js 4.4.1 (Versión fija CDN) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
+  <!-- Leaflet 1.9.4 (CDN fija para Mapa Geoespacial) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <!-- Leaflet.heat 0.2.0 (Capa de interpolación térmica continua sin API keys) -->
+  <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+
+  <!-- KaTeX 0.16.11 (Renderizado de Fórmulas Matemáticas y Símbolos Griegos) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous" onload="if (window.renderizarFormulasMatematicas) window.renderizarFormulasMatematicas();"></script>
+
   <style>
     /* Estilos base y transiciones suaves de tema */
     body {
@@ -98,16 +109,24 @@
         </div>
       </a>
 
-      <!-- Enlaces de Anclas (Scroll horizontal en pantallas estrechas) -->
-      <nav class="flex items-center gap-1 sm:gap-2 text-[11px] sm:text-xs md:text-sm font-medium text-slate-300 overflow-x-auto py-1 scrollbar-none">
-        <a href="#hero" class="px-2 sm:px-2.5 py-1 rounded-md hover:text-solar-400 hover:bg-slate-800/60 transition-colors shrink-0">Inicio</a>
-        <a href="#datos" class="px-2 sm:px-2.5 py-1 rounded-md hover:text-solar-400 hover:bg-slate-800/60 transition-colors shrink-0">Clima</a>
-        <a href="#modelo" class="px-2 sm:px-2.5 py-1 rounded-md hover:text-solar-400 hover:bg-slate-800/60 transition-colors shrink-0">MDP</a>
-        <a href="#entrenamiento" class="px-2 sm:px-2.5 py-1 rounded-md hover:text-solar-400 hover:bg-slate-800/60 transition-colors shrink-0">Entrenamiento</a>
-        <a href="#resultados" class="px-2 sm:px-2.5 py-1 rounded-md hover:text-solar-400 hover:bg-slate-800/60 transition-colors shrink-0">Resultados</a>
-        <a href="#simulador" class="px-2 sm:px-2.5 py-1 rounded-md hover:text-solar-400 hover:bg-slate-800/60 transition-colors shrink-0 text-solar-400 font-semibold">Simulador</a>
-        <a href="#politica" class="px-2 sm:px-2.5 py-1 rounded-md hover:text-solar-400 hover:bg-slate-800/60 transition-colors shrink-0">Política</a>
-        <a href="#conclusiones" class="px-2 sm:px-2.5 py-1 rounded-md hover:text-solar-400 hover:bg-slate-800/60 transition-colors shrink-0">Conclusiones</a>
+      <!-- Navegación por Pestañas (Tabs) -->
+      <nav id="main-tabs-nav" class="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-medium overflow-x-auto py-1 scrollbar-none" role="tablist">
+        <button type="button" role="tab" data-tab-target="tab-general" class="tab-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all text-solar-400 bg-slate-900 border-solar-500/40 shadow-sm shrink-0">
+          <span>📊</span>
+          <span class="font-semibold">Visión General & Clima</span>
+        </button>
+        <button type="button" role="tab" data-tab-target="tab-modelo-rl" class="tab-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-transparent transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-900/60 shrink-0">
+          <span>🤖</span>
+          <span class="font-semibold">Modelo RL & Resultados</span>
+        </button>
+        <button type="button" role="tab" data-tab-target="tab-simulador" class="tab-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-transparent transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-900/60 shrink-0">
+          <span>⚡</span>
+          <span class="font-semibold">Simulador & Política</span>
+        </button>
+        <button type="button" role="tab" data-tab-target="tab-conclusiones" class="tab-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-transparent transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-900/60 shrink-0">
+          <span>📋</span>
+          <span class="font-semibold">Conclusiones</span>
+        </button>
       </nav>
 
       <!-- Botón de Tema (Claro / Oscuro) -->
@@ -121,34 +140,90 @@
   </header>
 
   <!-- CONTENEDOR PRINCIPAL -->
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-20">
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
     <!-- ======================================================================= -->
-    <!-- 1. SECCIÓN HERO                                                         -->
+    <!-- PESTAÑA 1: VISIÓN GENERAL & CLIMA                                       -->
     <!-- ======================================================================= -->
-    <section id="hero" class="pt-4 sm:pt-8 scroll-mt-20 space-y-8">
+    <div id="tab-general" class="tab-content space-y-16">
       
-      <!-- Encabezado y Pregunta de Investigación -->
-      <div class="space-y-4 max-w-4xl">
-        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-solar-500/10 border border-solar-500/30 text-solar-400">
-          <span class="w-2 h-2 rounded-full bg-solar-400 animate-pulse"></span>
-          Inteligencia Artificial Aplicada a Energía Sostenible
+      <!-- 1. SECCIÓN HERO -->
+      <section id="hero" class="pt-4 sm:pt-6 space-y-8">
+      
+      <!-- Encabezado, Pregunta de Investigación y Foto de Paneles en La Paz -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+        
+        <!-- Columna Izquierda: Título, Pregunta y Contexto -->
+        <div class="lg:col-span-7 space-y-5">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-solar-500/10 border border-solar-500/30 text-solar-400">
+            <span class="w-2 h-2 rounded-full bg-solar-400 animate-pulse"></span>
+            Inteligencia Artificial Aplicada a Energía Sostenible
+          </div>
+
+          <h1 class="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-100 tracking-tight leading-tight">
+            Gestión inteligente de baterías solares con <span class="text-transparent bg-clip-text bg-gradient-to-r from-solar-400 to-amber-500">Aprendizaje por Refuerzo</span>
+          </h1>
+
+          <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800/90 shadow-xl backdrop-blur-sm">
+            <p class="text-xs uppercase tracking-wider font-semibold text-solar-400 mb-1">Pregunta de Investigación</p>
+            <blockquote class="text-base sm:text-lg text-slate-200 italic leading-relaxed">
+              «¿Puede un agente de RL gestionar la batería de una microrred rural en La Paz cubriendo más demanda crítica que las reglas fijas, sin aumentar el desgaste de la batería?»
+            </blockquote>
+          </div>
+
+          <p class="text-sm sm:text-base text-slate-400 leading-relaxed">
+            Evaluación empírica sobre 10 años de datos horarios de radiación y temperatura (NASA POWER, 2015–2024) en el altiplano andino (~3,600 msnm), comparando el agente RL contra tres baselines heurísticos y el oráculo teórico de programación dinámica con información perfecta.
+          </p>
+
+          <div class="flex flex-wrap gap-2 text-xs text-slate-300">
+            <span class="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 flex items-center gap-1.5">
+              <span>📍</span> La Paz, Bolivia (~3,600 msnm)
+            </span>
+            <span class="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 flex items-center gap-1.5">
+              <span>☀️</span> 1 kWp FV
+            </span>
+            <span class="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 flex items-center gap-1.5">
+              <span>🔋</span> Batería 2.4 kWh (80% útil)
+            </span>
+            <span class="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 flex items-center gap-1.5">
+              <span>⏱️</span> UTC-4
+            </span>
+          </div>
         </div>
 
-        <h1 class="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-100 tracking-tight leading-tight">
-          Gestión inteligente de baterías solares con <span class="text-transparent bg-clip-text bg-gradient-to-r from-solar-400 to-amber-500">Aprendizaje por Refuerzo</span>
-        </h1>
-
-        <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800/90 shadow-xl backdrop-blur-sm">
-          <p class="text-xs uppercase tracking-wider font-semibold text-solar-400 mb-1">Pregunta de Investigación</p>
-          <blockquote class="text-base sm:text-lg text-slate-200 italic leading-relaxed">
-            «¿Puede un agente de RL gestionar la batería de una microrred rural en La Paz cubriendo más demanda crítica que las reglas fijas, sin aumentar el desgaste de la batería?»
-          </blockquote>
+        <!-- Columna Derecha: Tarjeta con Fotografía Real de Paneles Solares en La Paz -->
+        <div class="lg:col-span-5">
+          <figure class="relative rounded-2xl overflow-hidden border border-slate-800 bg-slate-900 shadow-2xl group">
+            <div class="relative overflow-hidden aspect-[4/3] sm:aspect-[16/11]">
+              <img 
+                src="img/paneles_la_paz.jpg" 
+                alt="Paneles solares fotovoltaicos en tejado con vista al paisaje montañoso de La Paz, Bolivia"
+                class="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 ease-out"
+                loading="eager"
+              />
+              <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent"></div>
+              
+              <!-- Badges flotantes sobre la foto -->
+              <div class="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-950/80 backdrop-blur-md border border-slate-700/80 text-solar-400">
+                <span>📍</span> La Paz, Bolivia
+              </div>
+              <div class="absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-950/80 backdrop-blur-md border border-slate-700/80 text-slate-200">
+                <span>🏔️</span> ~3,600 msnm
+              </div>
+            </div>
+            
+            <figcaption class="p-3.5 bg-slate-950/90 border-t border-slate-800/80 flex items-start justify-between gap-3 text-xs">
+              <div>
+                <p class="font-medium text-slate-200">Instalación solar fotovoltaica en La Paz</p>
+                <p class="text-[11px] text-slate-400 mt-0.5">Generación solar en altura con alta irradiación y relieve característico del valle paceño.</p>
+              </div>
+              <span class="shrink-0 text-solar-500 font-mono text-[10px] px-2 py-0.5 rounded bg-solar-500/10 border border-solar-500/30">
+                Fotovoltaica
+              </span>
+            </figcaption>
+          </figure>
         </div>
 
-        <p class="text-sm sm:text-base text-slate-400 leading-relaxed">
-          Evaluación empírica sobre 10 años de datos horarios de radiación y temperatura (NASA POWER, 2015–2024) en el altiplano andino (~3,600 msnm), comparando el agente RL contra tres baselines heurísticos y el oráculo teórico de programación dinámica con información perfecta.
-        </p>
       </div>
 
       <!-- Tarjetas KPI (Cargadas dinámicamente de metricas.json en 2023-2024) -->
@@ -239,6 +314,212 @@
 
 
     <!-- ======================================================================= -->
+    <!-- 1.B SECCIÓN MAPA SOLAR DEPARTAMENTAL DE LA PAZ (METEOROLÓGICO CONTINUO) -->
+    <!-- ======================================================================= -->
+    <section id="mapa-solar" class="space-y-6">
+      
+      <div class="border-b border-slate-800 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-100 flex items-center gap-2">
+            <span>🗺️</span> Mapa de Radiación Solar del Departamento de La Paz
+          </h2>
+          <p class="text-sm text-slate-400 mt-1">
+            Atlas solar departamental continuo (Altiplano, Valles, Yungas y Norte Amazónico). Malla de calor continua interpolada con escala meteorológica profesional (W/m²) sobre mapa base blanco libre sin API keys.
+          </p>
+        </div>
+        <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300 shrink-0 self-start sm:self-auto">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>Cobertura Departamental · NASA POWER</span>
+        </div>
+      </div>
+
+      <!-- Barra de Control del Tiempo y Reproductor -->
+      <div class="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-lg flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+        
+        <!-- Botón Play/Pausa y Selector de Mes -->
+        <div class="flex flex-wrap items-center gap-3 shrink-0">
+          <button id="btn-mapa-play" type="button" 
+            class="px-4 py-2 rounded-xl bg-solar-500 hover:bg-solar-400 text-slate-950 font-bold text-xs sm:text-sm flex items-center gap-2 shadow-md transition-transform active:scale-95 focus:outline-none focus:ring-2 focus:ring-solar-500">
+            <span id="mapa-play-icon">▶️</span>
+            <span id="mapa-play-text">Reproducir 24h</span>
+          </button>
+
+          <div class="flex items-center gap-2">
+            <label for="mapa-select-mes" class="text-xs text-slate-400 font-medium">Mes:</label>
+            <select id="mapa-select-mes" 
+              class="bg-slate-950 border border-slate-700 text-slate-200 text-xs sm:text-sm rounded-xl px-3 py-2 focus:ring-2 focus:ring-solar-500 focus:outline-none">
+              <!-- Opciones generadas por JS -->
+            </select>
+          </div>
+        </div>
+
+        <!-- Slider Horario (00:00 a 23:00) -->
+        <div class="flex-1 flex items-center gap-3">
+          <span class="text-xs font-mono text-slate-400 shrink-0">00:00</span>
+          <div class="relative w-full flex items-center">
+            <input id="slider-mapa-hora" type="range" min="0" max="23" value="12" step="1" 
+              class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-solar-500 focus:outline-none" />
+          </div>
+          <span class="text-xs font-mono text-slate-400 shrink-0">23:00</span>
+          <div class="px-3 py-1 rounded-lg bg-solar-500/20 border border-solar-500/40 text-solar-400 font-mono font-bold text-xs shrink-0 min-w-[70px] text-center" id="lbl-mapa-hora">
+            12:00 h
+          </div>
+        </div>
+
+        <!-- Acceso Rápido a Épocas Clave -->
+        <div class="flex items-center gap-1.5 self-start lg:self-auto shrink-0">
+          <button type="button" data-mapa-mes="6" class="btn-mapa-epoca px-2.5 py-1.5 rounded-lg text-xs font-medium border border-slate-700 bg-slate-950 text-slate-300 hover:border-solar-500 hover:text-solar-400 transition-colors">
+            ❄️ Seca (Jul)
+          </button>
+          <button type="button" data-mapa-mes="0" class="btn-mapa-epoca px-2.5 py-1.5 rounded-lg text-xs font-medium border border-slate-700 bg-slate-950 text-slate-300 hover:border-solar-500 hover:text-solar-400 transition-colors">
+            🌧️ Lluviosa (Ene)
+          </button>
+          <button type="button" data-mapa-mes="9" class="btn-mapa-epoca px-2.5 py-1.5 rounded-lg text-xs font-medium border border-slate-700 bg-slate-950 text-slate-300 hover:border-solar-500 hover:text-solar-400 transition-colors">
+            🍂 Pico Solar (Oct)
+          </button>
+        </div>
+
+      </div>
+
+      <!-- Cuadrícula: Mapa Departamental Blanco a la Izquierda + Telemetría HUD a la Derecha -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        
+        <!-- Contenedor del Mapa Leaflet -->
+        <div class="lg:col-span-8 bg-slate-900/80 border border-slate-800 rounded-2xl p-3.5 shadow-xl flex flex-col space-y-3">
+          
+          <div class="relative w-full h-[520px] rounded-xl overflow-hidden border border-slate-700/60 shadow-inner z-0">
+            <!-- Canvas del Mapa -->
+            <div id="mapa-la-paz" class="w-full h-full bg-slate-100"></div>
+
+            <!-- Leyenda Térmica Meteorológica Profesional sobre el Mapa -->
+            <div class="absolute bottom-3 left-3 z-[1000] bg-white/95 dark:bg-slate-950/90 backdrop-blur-md border border-slate-300 dark:border-slate-800 p-2.5 rounded-xl shadow-lg text-[11px] text-slate-800 dark:text-slate-200 max-w-[320px]">
+              <div class="font-bold mb-1.5 flex items-center justify-between text-xs">
+                <span>Radiación Solar Global (GHI)</span>
+                <span id="mapa-leyenda-val" class="font-mono text-solar-600 dark:text-solar-400 font-bold">-- W/m²</span>
+              </div>
+              <!-- Barra de color meteorológica Turbo/Solar -->
+              <div class="h-2.5 w-full rounded-md shadow-inner" style="background: linear-gradient(to right, #3b82f6 0%, #06b6d4 25%, #22c55e 45%, #eab308 65%, #f97316 80%, #ef4444 92%, #ec4899 100%);"></div>
+              <div class="flex justify-between text-[10px] text-slate-600 dark:text-slate-400 mt-1 font-mono">
+                <span>0</span>
+                <span>250</span>
+                <span>500</span>
+                <span>750</span>
+                <span>1000</span>
+                <span>1200+</span>
+              </div>
+              <div class="text-[10px] text-slate-400 mt-1 flex justify-between">
+                <span>Noche</span>
+                <span>Nublado / Yungas</span>
+                <span>Pico Altiplano</span>
+              </div>
+            </div>
+
+            <!-- Badge Departamental Flotante -->
+            <div class="absolute top-3 right-3 z-[1000] bg-white/95 dark:bg-slate-950/90 backdrop-blur-md border border-slate-300 dark:border-slate-800 px-3 py-1 rounded-full shadow-md text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+              <span class="text-solar-500">🗺️</span>
+              <span>Dpto. de La Paz (133,985 km²)</span>
+            </div>
+          </div>
+
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-slate-400 gap-1 px-1">
+            <span>Mapa base claro libre (ESRI World Light Gray, sin API key). Haz clic en las estaciones provinciales para ver detalles microclimáticos.</span>
+            <span class="font-mono text-slate-400 shrink-0">13.5°S a 17.8°S · 66.8°W a 69.6°W</span>
+          </div>
+        </div>
+
+        <!-- Tarjeta de Telemetría en Tiempo Real (HUD) -->
+        <div class="lg:col-span-4 space-y-4">
+          
+          <div class="p-5 rounded-2xl bg-gradient-to-b from-slate-900/90 to-slate-950 border border-slate-800 shadow-xl space-y-4">
+            
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+              <span class="text-xs uppercase tracking-wider font-semibold text-slate-400">Telemetría Departamental</span>
+              <span id="hud-epoca-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-solar-500/20 text-solar-400 border border-solar-500/30">
+                Época Seca
+              </span>
+            </div>
+
+            <!-- Medidor de Radiación Principal -->
+            <div class="p-4 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-1">
+              <div class="flex justify-between items-baseline">
+                <span class="text-xs text-slate-400">Irradiación Solar Media (GHI)</span>
+                <span id="hud-sol-estado" class="text-[11px] font-medium text-solar-400">Pico Cenital Andino</span>
+              </div>
+              <div class="flex items-baseline gap-2">
+                <span id="hud-ghi-valor" class="text-4xl font-extrabold text-solar-400 font-mono">--</span>
+                <span class="text-xs text-slate-400 font-medium">W/m²</span>
+              </div>
+              <div class="w-full bg-slate-800 h-2.5 rounded-full mt-2 overflow-hidden">
+                <div id="hud-ghi-bar" class="h-full rounded-full transition-all duration-300" style="background: linear-gradient(to right, #3b82f6, #eab308, #ef4444, #ec4899); width: 0%;"></div>
+              </div>
+            </div>
+
+            <!-- Indicadores Secundarios (Temperatura y Potencia FV) -->
+            <div class="grid grid-cols-2 gap-3">
+              
+              <div class="p-3 rounded-xl bg-slate-950/50 border border-slate-800/70">
+                <span class="text-[11px] text-slate-400 block mb-1">Temperatura Altiplano</span>
+                <div class="flex items-baseline gap-1">
+                  <span id="hud-temp-valor" class="text-xl font-bold text-slate-100 font-mono">--</span>
+                  <span class="text-[11px] text-slate-400">°C</span>
+                </div>
+              </div>
+
+              <div class="p-3 rounded-xl bg-slate-950/50 border border-slate-800/70">
+                <span class="text-[11px] text-slate-400 block mb-1">Potencia FV (1 kWp)</span>
+                <div class="flex items-baseline gap-1">
+                  <span id="hud-pv-valor" class="text-xl font-bold text-emerald-400 font-mono">--</span>
+                  <span class="text-[11px] text-slate-400">kW</span>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Condición y Rendimiento Atmosférico -->
+            <div class="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1">
+              <div class="flex items-center justify-between text-xs">
+                <span class="text-slate-400">Régimen Atmosférico:</span>
+                <span id="hud-sol-badge" class="px-2 py-0.5 rounded font-mono font-bold text-[10px] bg-amber-500/20 text-solar-400 border border-solar-500/40">
+                  PICO ANDINO
+                </span>
+              </div>
+              <p id="hud-sol-desc" class="text-[11px] text-slate-300 leading-tight">
+                Atmósfera andina diáfana de alta transparencia con mínima dispersión por aerosoles.
+              </p>
+            </div>
+
+            <!-- Estadísticas Mensuales Históricas -->
+            <div class="pt-3 border-t border-slate-800/80 text-[11px] text-slate-400 space-y-1">
+              <div class="flex justify-between">
+                <span>Irradiación diaria media:</span>
+                <span id="hud-irrad-media" class="font-mono text-slate-200">-- kWh/m²/d</span>
+              </div>
+              <div class="flex justify-between">
+                <span>Rango histórico (P10–P90):</span>
+                <span id="hud-irrad-rango" class="font-mono text-slate-300">--</span>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Nota de Contrastes Climáticos Departamentales -->
+          <div class="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800 text-xs text-slate-300 space-y-1.5">
+            <span class="text-solar-400 font-bold flex items-center gap-1.5">
+              <span>🏔️</span> Gradiente Geográfico de Radiación
+            </span>
+            <p class="text-[11px] text-slate-400 leading-relaxed">
+              El departamento exhibe un fuerte contraste: el <strong>Altiplano y Cordillera</strong> registran picos extremos (>1,000 W/m²) por la delgadez atmosférica, mientras que los <strong>Yungas</strong> sufren atenuación por condensación orográfica de nubes amazónicas.
+            </p>
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- ======================================================================= -->
     <!-- 2. SECCIÓN DATOS CLIMÁTICOS (NASA POWER)                               -->
     <!-- ======================================================================= -->
     <section id="datos" class="scroll-mt-20 space-y-6">
@@ -324,12 +605,16 @@
 
       <div id="datos-error" class="hidden p-4 rounded-xl bg-red-950/60 border border-red-500/50 text-red-200 text-sm"></div>
     </section>
+  </div>
 
 
-    <!-- ======================================================================= -->
-    <!-- 3. SECCIÓN MODELO (MDP)                                                -->
-    <!-- ======================================================================= -->
-    <section id="modelo" class="scroll-mt-20 space-y-6">
+  <!-- ======================================================================= -->
+  <!-- PESTAÑA 2: MODELO RL & RESULTADOS (Entrenamiento, Métricas y Evaluación)-->
+  <!-- ======================================================================= -->
+  <div id="tab-modelo-rl" class="tab-content hidden space-y-16">
+
+    <!-- 3. SECCIÓN MODELO (MDP) -->
+    <section id="modelo" class="pt-4 sm:pt-6 space-y-6">
       
       <div class="border-b border-slate-800 pb-4">
         <h2 class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-100 flex items-center gap-2">
@@ -413,8 +698,8 @@
             </div>
             <h3 class="text-base font-bold text-slate-100">Pesos Multiobjetivo</h3>
             <p class="text-xs text-slate-400">Penalización horaria continua:</p>
-            <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-xs font-mono text-slate-200">
-              $R_t = -(w_c E_{nc}^{crit} + w_{nc} E_{nc}^{nc} + w_b E_{bat})$
+            <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-slate-200 overflow-x-auto text-center">
+              $$R_t = -\left(w_c E_{\text{nc}}^{\text{crit}} + w_{\text{nc}} E_{\text{nc}}^{\text{nc}} + w_b E_{\text{bat}}\right)$$
             </div>
             <ul class="text-xs text-slate-300 space-y-2 font-mono">
               <li class="flex items-center justify-between border-b border-slate-800 pb-1">
@@ -422,7 +707,7 @@
                 <span id="mdp-peso-crit" class="font-bold text-red-400">-- / kWh</span>
               </li>
               <li class="flex items-center justify-between border-b border-slate-800 pb-1">
-                <span class="text-slate-400 font-sans">Déficit no crítico ($w_{nc}$):</span>
+                <span class="text-slate-400 font-sans">Déficit no crítico ($w_{\text{nc}}$):</span>
                 <span id="mdp-peso-nc" class="font-bold text-amber-400">-- / kWh</span>
               </li>
               <li class="flex items-center justify-between">
@@ -527,7 +812,11 @@
               <h3 class="text-base font-semibold text-slate-200">Hiperparámetros</h3>
               <span class="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">Q-Learning</span>
             </div>
-            <p class="text-xs text-slate-400 mb-4">Configuración del algoritmo y política de exploración lineal:</p>
+            <p class="text-xs text-slate-400 mb-2">Actualización de Bellman y configuración:</p>
+
+            <div class="mb-3 p-2 rounded-lg bg-slate-950 border border-slate-800 text-[11px] text-center text-slate-200 overflow-x-auto">
+              $$Q(s, a) \leftarrow Q(s, a) + \alpha \left[ R + \gamma \max_{a'} Q(s', a') - Q(s, a) \right]$$
+            </div>
 
             <div class="overflow-hidden rounded-xl border border-slate-800 bg-slate-950/50">
               <table class="w-full text-left text-xs">
@@ -549,7 +838,7 @@
                     <td id="param-gamma" class="py-2 px-3 text-right font-bold text-slate-200">--</td>
                   </tr>
                   <tr>
-                    <td class="py-2 px-3 text-slate-400 font-sans">Exploración ($\epsilon_{ini} \to \epsilon_{fin}$)</td>
+                    <td class="py-2 px-3 text-slate-400 font-sans">Exploración ($\epsilon_{\text{ini}} \to \epsilon_{\text{fin}}$)</td>
                     <td id="param-epsilon" class="py-2 px-3 text-right font-bold text-solar-400">--</td>
                   </tr>
                   <tr>
@@ -685,12 +974,16 @@
 
       <div id="resultados-error" class="hidden p-4 rounded-xl bg-red-950/60 border border-red-500/50 text-red-200 text-sm"></div>
     </section>
+  </div>
 
 
-    <!-- ======================================================================= -->
-    <!-- 6. SECCIÓN SIMULADOR DE SEMANAS                                         -->
-    <!-- ======================================================================= -->
-    <section id="simulador" class="scroll-mt-20 space-y-6">
+  <!-- ======================================================================= -->
+  <!-- PESTAÑA 3: SIMULADOR HORARIO & POLÍTICA APRENDIDA                       -->
+  <!-- ======================================================================= -->
+  <div id="tab-simulador" class="tab-content hidden space-y-16">
+
+    <!-- 6. SECCIÓN SIMULADOR DE SEMANAS -->
+    <section id="simulador" class="pt-4 sm:pt-6 space-y-6">
       
       <div class="border-b border-slate-800 pb-4">
         <h2 class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-100 flex items-center gap-2">
@@ -835,7 +1128,7 @@
       
       <div class="border-b border-slate-800 pb-4">
         <h2 class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-100 flex items-center gap-2">
-          <span>🗺️</span> Política Aprendida por el Agente ($π^*(s)$)
+          <span>🗺️</span> Política Aprendida por el Agente ($\pi^*(s)$)
         </h2>
         <p class="text-sm text-slate-400 mt-1">
           Mapa de decisión óptimo (acción greedy $\arg\max_a Q(s,a)$) para cada combinación de hora del día y nivel de carga (SoC), condicionado a las condiciones de radiación solar actual y del día previo.
@@ -921,12 +1214,16 @@
 
       <div id="politica-error" class="hidden p-4 rounded-xl bg-red-950/60 border border-red-500/50 text-red-200 text-sm"></div>
     </section>
+  </div>
 
 
-    <!-- ======================================================================= -->
-    <!-- 8. SECCIÓN CONCLUSIONES Y LÍMITES                                      -->
-    <!-- ======================================================================= -->
-    <section id="conclusiones" class="scroll-mt-20 space-y-6">
+  <!-- ======================================================================= -->
+  <!-- PESTAÑA 4: CONCLUSIONES, LÍMITES Y CITAS                                -->
+  <!-- ======================================================================= -->
+  <div id="tab-conclusiones" class="tab-content hidden space-y-16">
+
+    <!-- 8. SECCIÓN CONCLUSIONES Y LÍMITES -->
+    <section id="conclusiones" class="pt-4 sm:pt-6 space-y-6">
       
       <div class="border-b border-slate-800 pb-4">
         <h2 class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-100 flex items-center gap-2">
@@ -1008,6 +1305,7 @@
       </div>
 
     </section>
+  </div>
 
   </main>
 
@@ -1044,6 +1342,9 @@
       </div>
     </div>
   </footer>
+
+  <!-- Datos estáticos embebidos para soporte offline y apertura directa vía file:// (sin servidor) -->
+  <script src="data/datos_embebidos.js"></script>
 
   <!-- Script principal de la aplicación -->
   <script src="app.js"></script>

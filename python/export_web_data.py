@@ -472,6 +472,25 @@ def exportar_politica(ruta_q: Path, ruta_salida: Path):
     print(f"  -> Guardado: {ruta_salida}")
 
 
+def exportar_datos_embebidos(dir_web_datos: Path):
+    """Empaqueta los 6 JSON en datos_embebidos.js para soporte directo de index.html (file://) sin servidor."""
+    archivos = ["clima", "config", "aprendizaje", "metricas", "semanas", "politica"]
+    datos_embebidos = {}
+    for nombre in archivos:
+        ruta_json = dir_web_datos / f"{nombre}.json"
+        if ruta_json.exists():
+            with open(ruta_json, "r", encoding="utf-8") as f:
+                datos_embebidos[nombre] = json.load(f)
+
+    ruta_js = dir_web_datos / "datos_embebidos.js"
+    with open(ruta_js, "w", encoding="utf-8") as f:
+        f.write("// Archivo autogenerado para soporte offline / protocolo file:// y despliegue estático\n")
+        f.write("window.__DATOS_EMBEBIDOS__ = ")
+        json.dump(datos_embebidos, f, ensure_ascii=False, separators=(",", ":"))
+        f.write(";\n")
+    print(f"  -> Empaquetado offline: {ruta_js} ({ruta_js.stat().st_size / 1024:.2f} KB)")
+
+
 # ==============================================================================
 # FUNCIÓN PRINCIPAL DE EXPORTACIÓN
 # ==============================================================================
@@ -505,6 +524,9 @@ def exportar_todo():
     exportar_metricas(DIR_RESULTADOS / "metricas.csv", ruta_metricas)
     exportar_semanas(df_clima, df_demanda, ruta_semanas)
     exportar_politica(DIR_RESULTADOS / "q_table.npy", ruta_politica)
+
+    # Empaquetar bundle JS para permitir doble clic directo sobre index.html (file://) sin servidor
+    exportar_datos_embebidos(DIR_WEB_DATOS)
 
     print("\n" + "=" * 80)
     print("VERIFICACIÓN DE INTEGRIDAD Y TAMAÑOS DE ARCHIVOS JSON")

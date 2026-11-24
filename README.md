@@ -44,16 +44,19 @@ El proyecto incluye la formulación física completa, entrenamiento, validación
 │   ├── q_table.npy                    # Tabla Q óptima entrenada (24 × 10 × 4 × 3 × 3 floats)
 │   ├── curva_aprendizaje.csv          # Evolución de recompensa en validación (año 2022)
 │   └── metricas.csv                   # Resultados tabulares de prueba por estrategia y época
-├── web/                               # Aplicación web estática autónoma (lista para GitHub Pages)
-│   ├── index.html                     # Interfaz single-page con Tailwind y Chart.js
-│   ├── app.js                         # Lógica cliente, heatmap interactivo y simulador horario
-│   └── data/                          # Datos estáticos serializados en formato JSON
+├── web/                               # Aplicación web estática tipo Dashboard (lista para GitHub Pages)
+│   ├── index.html                     # Interfaz profesional en 4 pestañas con Tailwind, Chart.js y Leaflet
+│   ├── app.js                         # Lógica cliente, simulador horario y mapa solar departamental
+│   ├── img/                           # Recursos gráficos (fotografía real de paneles en La Paz)
+│   └── data/                          # Datos estáticos serializados en formato JSON y JS embebido
+│       ├── datos_embebidos.js         # Bundle empaquetado para soporte directo file:// sin servidor
 │       ├── aprendizaje.json
 │       ├── clima.json
 │       ├── config.json
 │       ├── metricas.json
 │       ├── politica.json
 │       └── semanas.json
+├── index.html                         # Punto de entrada raíz (redirección automática al dashboard)
 ├── requirements.txt                   # Dependencias de Python mínimas y fijas
 └── README.md
 ```
@@ -122,35 +125,50 @@ python python/export_web_data.py
 
 ---
 
-## 🌐 Cómo Servir y Desplegar la Aplicación Web
+## 🌐 Cómo Abrir y Desplegar la Aplicación Web
 
-Dado que la aplicación realiza peticiones `fetch()` a archivos JSON locales, debe ejecutarse a través de un servidor HTTP local o plataforma estática:
+El dashboard está completamente optimizado tanto para **abrirse directamente con doble clic** en tu computadora como para **publicarse en GitHub / GitHub Pages**:
 
-### Opción 1: Servidor Python local (Recomendada para desarrollo)
+### Opción 1: Apertura Directa con `index.html` (Recomendada / Sin Servidor)
 
-Desde la raíz del repositorio:
+¡No requiere instalar ni ejecutar ningún servidor local!
+1. Haz **doble clic en `index.html`** (en la raíz del repositorio o dentro de `web/index.html`).
+2. Se abrirá en tu navegador predeterminado (Chrome, Edge, Firefox, Brave, Safari) con todas las funcionalidades activas: mapa solar interactivo, fórmulas KaTeX, simulador horario y gráficos de métricas.
+> *Nota técnica:* Los datos estáticos están empaquetados en `web/data/datos_embebidos.js`, lo que elimina los bloqueos de CORS que los navegadores imponen al protocolo `file://`.
 
+### Opción 2: Publicación en GitHub y GitHub Pages
+
+Para subir el proyecto a GitHub y tener el dashboard activo en la web:
+
+1. **Subir cambios a GitHub:**
+   ```bash
+   git add .
+   git commit -m "Soporte de apertura directa con index.html y despliegue GitHub Pages"
+   git push origin master
+   ```
+
+2. **Habilitar GitHub Pages:**
+   - En tu repositorio de GitHub, ve a **Settings** > **Pages** (en el menú lateral izquierdo).
+   - En **Build and deployment** > **Source**, selecciona **GitHub Actions**.
+   - El flujo automatizado [`.github/workflows/pages.yml`](.github/workflows/pages.yml) construirá y publicará automáticamente el sitio en:
+     `https://<tu-usuario>.github.io/<tu-repositorio>/`
+
+*(Alternativamente, si usas la opción "Deploy from a branch -> master", el archivo `index.html` de la raíz redirige de inmediato a `web/index.html`).*
+
+### Opción 3: Servidor Local Opcional (Para desarrollo)
+
+Si prefieres servirlo mediante un servidor HTTP local:
 ```bash
 python -m http.server 8000 --directory web
 ```
+Luego abre en tu navegador: **[http://localhost:8000](http://localhost:8000)**
 
-O desde la carpeta `web/`:
+### 🖥️ Organización del Dashboard Web (4 Pestañas)
 
-```bash
-cd web
-python -m http.server 8000
-```
-
-Luego abre en tu navegador web:  
-👉 **[http://localhost:8000](http://localhost:8000)**
-
-### Opción 2: Publicación automática en GitHub Pages (vía GitHub Actions)
-
-El repositorio incluye el flujo automatizado [`.github/workflows/pages.yml`](.github/workflows/pages.yml):
-1. Ve a tu repositorio en GitHub y abre la pestaña **Settings**.
-2. En el menú lateral izquierdo, haz clic en **Pages**.
-3. En la sección **Build and deployment**, bajo el menú desplegable **Source**, selecciona **GitHub Actions** (en lugar de *Deploy from a branch*).
-4. Al hacer push a la rama `master`, GitHub Actions construirá y publicará automáticamente la carpeta `web/`.
+1. **📊 Visión General & Mapa Solar:** Hero interactivo con la fotografía real de la instalación en La Paz, pregunta de investigación, 3 KPIs clave en prueba (2023–2024) y el **Mapa de Radiación Solar Departamental** (base blanca ESRI sin claves API, interpolación continua `Leaflet.heat` y 11 estaciones provinciales).
+2. **🤖 Modelo RL & Resultados:** Formulación completa del MDP (2,880 estados, 3 acciones y recompensa multiobjetivo), parámetros de microrred, hiperparámetros de Q-Learning, curva de aprendizaje y comparativa de las 5 estrategias con filtros de año y época.
+3. **⚡ Simulador Horario & Política:** Gemelo digital con simulación hora a hora de 12 semanas típicas de 2024 (168 h con áreas de demanda vs generación, curva de SoC y franja de acciones) y el mapa de calor interactivo de la política óptima aprendida.
+4. **📋 Conclusiones:** Hallazgos principales respaldados por métricas dinámicas, análisis explícito del desgaste/ciclado, limitaciones metodológicas y cita formal del proyecto NASA POWER.
 
 ---
 

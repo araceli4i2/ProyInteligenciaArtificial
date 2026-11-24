@@ -37,6 +37,15 @@ const AppState = {
     nivelRad: 3, // Radiación alta por defecto
     nivelRadAyer: 1, // Día previo medio por defecto
   },
+  mapaSolar: {
+    mapa: null,
+    capasCalor: [],
+    marcadores: [],
+    hora: 12,
+    mes: 6, // Julio por defecto (época seca con sol radiante)
+    reproduciendo: false,
+    intervaloPlay: null,
+  },
 };
 
 // Nombres canónicos de acciones y colores
@@ -125,9 +134,30 @@ function actualizarEstilosGraficos() {
 }
 
 // =============================================================================
-// CARGA ASÍNCRONA DE DATOS JSON
+// CARGA ASÍNCRONA DE DATOS JSON (Con soporte offline y file:// sin servidor)
 // =============================================================================
 async function cargarDatosJSON() {
+  const claves = ["clima", "config", "aprendizaje", "metricas", "semanas", "politica"];
+
+  // 1. Si los datos están embebidos (ej. apertura directa de index.html con doble clic / protocolo file://)
+  // o si no se dispone de servidor web local, usar inmediatamente los datos en memoria.
+  const esProtocoloLocal = window.location.protocol === "file:" || !window.location.protocol;
+  if (esProtocoloLocal && window.__DATOS_EMBEBIDOS__) {
+    let completos = true;
+    claves.forEach((k) => {
+      if (window.__DATOS_EMBEBIDOS__[k]) {
+        AppState.datos[k] = window.__DATOS_EMBEBIDOS__[k];
+      } else {
+        completos = false;
+      }
+    });
+    if (completos) {
+      console.info("Dashboard cargado en modo local (file://) usando datos_embebidos.js.");
+      return true;
+    }
+  }
+
+  // 2. Si se sirve a través de HTTP/HTTPS (GitHub Pages o servidor local), intentar fetch()
   const archivos = [
     { clave: "clima", url: "data/clima.json", seccionError: "datos-error" },
     { clave: "config", url: "data/config.json", seccionError: "modelo-error" },
@@ -147,18 +177,40 @@ async function cargarDatosJSON() {
           }
           return { clave: item.clave, data: await res.json() };
         } catch (err) {
+          // Si fetch() falla (ej. restricción de navegador o archivo faltante), recurrir a los datos embebidos
+          if (window.__DATOS_EMBEBIDOS__ && window.__DATOS_EMBEBIDOS__[item.clave]) {
+            console.warn(`Fallback activo para ${item.clave} tras fallo de fetch:`, err.message);
+            return { clave: item.clave, data: window.__DATOS_EMBEBIDOS__[item.clave] };
+          }
           mostrarError(item.seccionError, `No se pudo cargar '${item.url}': ${err.message}`);
           return { clave: item.clave, data: null };
         }
       })
     );
 
+    let algunFallo = false;
     respuestas.forEach((item) => {
       AppState.datos[item.clave] = item.data;
+      if (!item.data) algunFallo = true;
     });
+
+    // Respaldo de contingencia: si alguna clave no cargó vía fetch, rellenar desde datos embebidos
+    if (algunFallo && window.__DATOS_EMBEBIDOS__) {
+      claves.forEach((k) => {
+        if (!AppState.datos[k] && window.__DATOS_EMBEBIDOS__[k]) {
+          AppState.datos[k] = window.__DATOS_EMBEBIDOS__[k];
+        }
+      });
+    }
 
     return true;
   } catch (error) {
+    if (window.__DATOS_EMBEBIDOS__) {
+      claves.forEach((k) => {
+        AppState.datos[k] = window.__DATOS_EMBEBIDOS__[k];
+      });
+      return true;
+    }
     mostrarError("hero-error", `Error general en carga de datos: ${error.message}`);
     return false;
   }
@@ -227,6 +279,387 @@ function renderizarHeroKPIs() {
 
     const elRecOraculo = document.getElementById("kpi-rec-oraculo");
     if (elRecOraculo) elRecOraculo.textContent = `${regOraculo.recompensa_total.toFixed(1)}`;
+  }
+}
+
+// =============================================================================
+// SECCIÓN 1.B: MAPA SOLAR DEPARTAMENTAL DE LA PAZ (METEOROLÓGICO CONTINUO)
+// =============================================================================
+
+// Red de nodos representativos que cubren las 20 provincias del Dpto. de La Paz
+// [latitud, longitud, factor_microclima, nombre_zona, altitud_m]
+const NODOS_DEPARTAMENTALES_LA_PAZ = [
+  // 1. Cuenca Central y Altiplano Metropolitano (Murillo / Ingavi)
+  [-16.5000, -68.1500, 1.00, "La Paz (Microrred Murillo)", 3600],
+  [-16.5100, -68.1950, 1.04, "El Alto (Altiplano Central)", 4050],
+  [-16.5400, -68.0850, 0.98, "Zona Sur (Calacoto/Achumani)", 3250],
+  [-16.6000, -68.0400, 0.97, "Mecapaca (Río Abajo)", 2850],
+  [-16.6500, -68.3000, 1.03, "Viacha (Ingavi)", 3870],
+  [-16.5300, -68.3500, 1.03, "Laja (Los Andes)", 3860],
+  [-16.7000, -68.5000, 1.04, "Tiahuanacu (Ingavi)", 3885],
+
+  // 2. Altiplano Sur y Pacajes (Aroma / Pacajes / Gualberto Villarroel)
+  [-17.0000, -68.1000, 1.04, "Ayo Ayo (Aroma)", 3810],
+  [-17.2330, -67.9170, 1.05, "Patacamaya (Aroma)", 3790],
+  [-17.3500, -67.7500, 1.05, "Sica Sica (Aroma)", 3800],
+  [-17.2000, -68.5500, 1.05, "Caquiaviri (Pacajes)", 3900],
+  [-17.5000, -68.6000, 1.06, "Comanche (Pacajes)", 4000],
+  [-17.6000, -69.2000, 1.06, "Charaña (Frontera Andina)", 4050],
+  [-17.8000, -68.1000, 1.05, "Curahuara / Límite Sur", 3890],
+
+  // 3. Región Lago Titicaca y Omasuyos (Manco Kapac / Omasuyos / Eliodoro Camacho)
+  [-16.1660, -69.0850, 1.02, "Copacabana (Lago Titicaca)", 3812],
+  [-16.0000, -69.1800, 1.02, "Isla del Sol (Titicaca)", 3950],
+  [-16.0440, -68.6830, 1.01, "Achacachi (Omasuyos)", 3850],
+  [-15.8000, -69.1000, 1.02, "Puerto Acosta (Camacho)", 3840],
+  [-15.6000, -69.0000, 1.02, "Ulla Ulla (Frontera Altiplánica)", 4200],
+  [-16.3000, -68.7000, 1.01, "Huatajata (Lago Menor)", 3815],
+
+  // 4. Cordillera Real (Cumbres y Estribaciones Glaciares)
+  [-16.6500, -67.7900, 1.06, "Nevado Illimani", 6438],
+  [-16.3500, -68.1200, 1.06, "Huayna Potosí", 6088],
+  [-16.1000, -68.2500, 1.05, "Condoriri (Cordillera Real)", 5648],
+  [-15.8500, -68.5500, 1.05, "Nevado Illampu", 6368],
+
+  // 5. Valles Interandinos y Cabeceras de Valle (Loayza / Inquisivi)
+  [-16.9000, -67.7000, 0.98, "Luribay (Loayza)", 2650],
+  [-17.0500, -67.5500, 0.98, "Sapahaqui (Loayza)", 2900],
+  [-16.8500, -67.1500, 0.97, "Inquisivi (Valles)", 2760],
+  [-16.7000, -67.3500, 0.97, "Cajuata (Inquisivi)", 2450],
+
+  // 6. Yungas y Faja Subandina (Nor Yungas / Sud Yungas / Caranavi)
+  [-16.1900, -67.7270, 0.84, "Coroico (Nor Yungas)", 1750],
+  [-16.4080, -67.5250, 0.85, "Chulumani (Sud Yungas)", 1740],
+  [-16.3500, -67.4000, 0.85, "Irupana (Sud Yungas)", 1900],
+  [-16.5000, -67.2500, 0.86, "La Asunta (Sud Yungas)", 1300],
+  [-15.8200, -67.5700, 0.87, "Caranavi (Puerta Amazónica)", 975],
+  [-15.6500, -67.4000, 0.88, "Palos Blancos (Sud Yungas)", 480],
+
+  // 7. Norte Paceño y Pie de Monte (Larecaja / Franz Tamayo)
+  [-15.7720, -68.6490, 0.96, "Sorata (Valle del Illampu)", 2670],
+  [-15.5500, -68.3500, 0.92, "Tipuani (Larecaja)", 550],
+  [-15.4000, -68.1000, 0.91, "Guanay (Larecaja)", 480],
+  [-14.7170, -68.5170, 0.89, "Apolo (Franz Tamayo)", 1430],
+  [-15.0000, -68.9000, 0.92, "Pelechuco (Apolobamba)", 3600],
+
+  // 8. Llanura Amazónica del Norte (Abel Iturralde / Madidi)
+  [-14.4330, -67.5330, 0.87, "San Buenaventura / Rurrenabaque", 230],
+  [-13.7670, -68.1330, 0.88, "Ixiamas (Abel Iturralde)", 260],
+  [-13.2000, -68.2500, 0.89, "Parque Nacional Madidi", 220],
+  [-12.7000, -68.3500, 0.89, "Alto Madidi", 200],
+  [-12.2000, -68.5000, 0.90, "Chive / Río Madre de Dios", 180],
+  [-11.8500, -68.6000, 0.90, "Extremo Norte Paceño", 160]
+];
+
+function inicializarMapaSolar() {
+  const contenedor = document.getElementById("mapa-la-paz");
+  if (!contenedor || typeof L === "undefined") return;
+
+  // Si ya existía un mapa, no reinicializarlo
+  if (AppState.mapaSolar.mapa) return;
+
+  const clima = AppState.datos.clima;
+  if (!clima) return;
+
+  // 1. Inicializar mapa Leaflet centrado en el Departamento de La Paz
+  // Centro regional: Lat -15.65°S, Lon -68.10°W, Zoom 7 (vista departamental completa)
+  const centroDepartamental = [-15.6500, -68.1000];
+  const mapa = L.map("mapa-la-paz", {
+    center: centroDepartamental,
+    zoom: 7,
+    minZoom: 6,
+    maxZoom: 13,
+    zoomControl: true,
+  });
+
+  // 2. Capa base cartográfica blanca libre (ESRI World Light Gray Base - SIN API KEY)
+  L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
+    maxZoom: 16,
+    attribution: '&copy; Esri, HERE, Garmin, &copy; OpenStreetMap contributors',
+  }).addTo(mapa);
+
+  AppState.mapaSolar.mapa = mapa;
+
+  // 3. Crear capa de interpolación térmica continua (Leaflet.heat) con escala meteorológica
+  if (typeof L.heatLayer === "function") {
+    const heat = L.heatLayer([], {
+      radius: 38,
+      blur: 26,
+      maxZoom: 9,
+      max: 1.0,
+      minOpacity: 0.18,
+      gradient: {
+        0.10: "#3b82f6", // Azul (baja / crepúsculo)
+        0.25: "#06b6d4", // Cyan
+        0.42: "#22c55e", // Verde (nubosidad / Yungas)
+        0.62: "#eab308", // Amarillo (moderada)
+        0.78: "#f97316", // Naranja (alta)
+        0.90: "#ef4444", // Rojo (muy alta)
+        1.00: "#ec4899", // Magenta brillante (Pico Altiplánico >1000 W/m²)
+      },
+    }).addTo(mapa);
+
+    AppState.mapaSolar.capaHeatmap = heat;
+  }
+
+  // 4. Estaciones de Monitoreo Departamental con Popups Técnicos
+  const estiloIcono = (icono, colorBg = "#f59e0b") => L.divIcon({
+    className: "custom-solar-marker",
+    html: `<div style="background-color: ${colorBg}; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 8px rgba(0,0,0,0.3); border: 2px solid white; font-size: 13px;">${icono}</div>`,
+    iconSize: [26, 26],
+    iconAnchor: [13, 13],
+    popupAnchor: [0, -13],
+  });
+
+  const estaciones = [
+    { coords: [-16.5000, -68.1500], icono: "⚡", bg: "#f59e0b", titulo: "📍 Microrred La Paz (Murillo)", alt: 3600, desc: "Sitio de simulación con IA. 1 kWp FV + 2.4 kWh batería (RL Q-Learning)." },
+    { coords: [-16.5100, -68.1950], icono: "🏔️", bg: "#0284c7", titulo: "🏔️ El Alto (Altiplano Central)", alt: 4050, desc: "Meseta altiplánica: máxima irradiación directa y mínima densidad atmosférica." },
+    { coords: [-16.1660, -69.0850], icono: "⛵", bg: "#06b6d4", titulo: "⛵ Copacabana (Lago Titicaca)", alt: 3812, desc: "Altiplano lacustre: alta claridad atmosférica y reflexión sobre el espejo de agua." },
+    { coords: [-17.2330, -67.9170], icono: "🌾", bg: "#8b5cf6", titulo: "🌾 Patacamaya (Aroma)", alt: 3790, desc: "Altiplano sur seco: radiación global excelente y cielos despejados de invierno." },
+    { coords: [-16.0440, -68.6830], icono: "🌾", bg: "#0284c7", titulo: "🌾 Achacachi (Omasuyos)", alt: 3850, desc: "Planicie lacustre-andina: óptimo potencial para bombeo solar agrícola." },
+    { coords: [-16.1900, -67.7270], icono: "🌿", bg: "#10b981", titulo: "🌿 Coroico (Nor Yungas)", alt: 1750, desc: "Valles húmedos de montaña: radiación atenuada por condensación orográfica." },
+    { coords: [-15.8200, -67.5700], icono: "☕", bg: "#14b8a6", titulo: "☕ Caranavi (Faja Subandina)", alt: 975, desc: "Puerta de la Amazonía: transición tropical con humedad moderada." },
+    { coords: [-15.7720, -68.6490], icono: "🏔️", bg: "#6366f1", titulo: "🏔️ Sorata (Larecaja)", alt: 2670, desc: "Valle interandino profundo al pie del macizo Illampu." },
+    { coords: [-14.7170, -68.5170], icono: "🌳", bg: "#22c55e", titulo: "🌳 Apolo (Franz Tamayo)", alt: 1430, desc: "Cabeceras de cuenca amazónica y Parque Nacional Madidi." },
+    { coords: [-13.7670, -68.1330], icono: "🌴", bg: "#15803d", titulo: "🌴 Ixiamas (Abel Iturralde)", alt: 260, desc: "Norte paceño: llanura amazónica tropical con régimen de radiación difusa." },
+    { coords: [-16.6500, -67.7900], icono: "❄️", bg: "#4f46e5", titulo: "❄️ Nevado Illimani", alt: 6438, desc: "Pico tutelar de la Cordillera Real que corona el valle de La Paz." },
+  ];
+
+  const marcadoresObj = [];
+  estaciones.forEach((est) => {
+    const m = L.marker(est.coords, { icon: estiloIcono(est.icono, est.bg) }).addTo(mapa);
+    m.bindPopup(`
+      <div style="font-family: sans-serif; font-size: 12px; color: #0f172a; line-height: 1.45; min-width: 180px;">
+        <strong style="color: ${est.bg}; font-size: 13px;">${est.titulo}</strong><br>
+        <b>Altitud:</b> ~${est.alt.toLocaleString()} msnm<br>
+        <p style="margin: 4px 0 0; color: #475569; font-size: 11px;">${est.desc}</p>
+        <div style="margin-top: 6px; padding-top: 4px; border-top: 1px solid #e2e8f0; font-size: 11px;">
+          <b>Radiación estimada:</b> <span class="popup-ghi-val font-mono font-bold" style="color: #d97706;">-- W/m²</span>
+        </div>
+      </div>
+    `);
+    marcadoresObj.push({ marker: m, factor: (NODOS_DEPARTAMENTALES_LA_PAZ.find(n => n[0] === est.coords[0] && n[1] === est.coords[1])?.[2] ?? 1.0) });
+  });
+
+  AppState.mapaSolar.marcadores = marcadoresObj;
+
+  // 5. Poblar selector de meses en el DOM
+  const selectMes = document.getElementById("mapa-select-mes");
+  if (selectMes && clima.nombres_meses) {
+    selectMes.innerHTML = "";
+    clima.nombres_meses.forEach((nom, idx) => {
+      const opt = document.createElement("option");
+      opt.value = idx;
+      opt.textContent = `${nom} (${clima.epocas_meses[idx]})`;
+      if (idx === AppState.mapaSolar.mes) opt.selected = true;
+      selectMes.appendChild(opt);
+    });
+
+    selectMes.addEventListener("change", (e) => {
+      AppState.mapaSolar.mes = parseInt(e.target.value, 10);
+      actualizarMapaSolar();
+    });
+  }
+
+  // 6. Conectar slider horario
+  const sliderHora = document.getElementById("slider-mapa-hora");
+  if (sliderHora) {
+    sliderHora.value = AppState.mapaSolar.hora;
+    sliderHora.addEventListener("input", (e) => {
+      AppState.mapaSolar.hora = parseInt(e.target.value, 10);
+      actualizarMapaSolar();
+    });
+  }
+
+  // 7. Botón Play/Pausa de animación 24h
+  const btnPlay = document.getElementById("btn-mapa-play");
+  if (btnPlay) {
+    btnPlay.addEventListener("click", togglePlayMapaSolar);
+  }
+
+  // 8. Botones de acceso rápido a épocas
+  document.querySelectorAll(".btn-mapa-epoca").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const mesIdx = parseInt(btn.getAttribute("data-mapa-mes"), 10);
+      if (!isNaN(mesIdx)) {
+        AppState.mapaSolar.mes = mesIdx;
+        if (selectMes) selectMes.value = mesIdx;
+        actualizarMapaSolar();
+      }
+    });
+  });
+
+  // Ejecutar primer renderizado del mapa departamental
+  actualizarMapaSolar();
+}
+
+function actualizarMapaSolar() {
+  const clima = AppState.datos.clima;
+  if (!clima) return;
+
+  const hora = AppState.mapaSolar.hora;
+  const mes = AppState.mapaSolar.mes;
+
+  // 1. Obtener valores climáticos base de La Paz (NASA POWER)
+  const matriz = clima.matriz_ghi_hora_mes;
+  const ghiBase = (matriz && matriz[hora] && matriz[hora][mes] !== undefined) ? matriz[hora][mes] : 0;
+  const tempMes = clima.temperatura_media_mes?.[mes] ?? 8.5;
+
+  // Modelo de temperatura diurna en Altiplano
+  const factorCicloTemp = hora >= 6 && hora <= 18 ? Math.sin(((hora - 6) / 12) * Math.PI) * 5.2 : -3.2;
+  const tempEstimada = Math.round((tempMes + factorCicloTemp) * 10) / 10;
+
+  // 2. Potencia FV estimada (1 kWp con PR y corrección por temperatura)
+  const potNominal = AppState.datos.config?.fotovoltaico?.potencia_pico_kw ?? 0.75;
+  const pr = AppState.datos.config?.fotovoltaico?.rendimiento_pr ?? 0.8;
+  const gamma = AppState.datos.config?.fotovoltaico?.coef_temperatura_por_c ?? -0.004;
+  const tRef = AppState.datos.config?.fotovoltaico?.temp_ref_stc_c ?? 25.0;
+  const factorTemp = 1.0 + gamma * (tempEstimada - tRef);
+  const pvEstimado = Math.max(0, (potNominal * (ghiBase / 1000) * factorTemp * pr));
+
+  // 3. Actualizar controles en el DOM
+  const lblHora = document.getElementById("lbl-mapa-hora");
+  if (lblHora) lblHora.textContent = `${hora.toString().padStart(2, "0")}:00 h`;
+
+  const sliderHora = document.getElementById("slider-mapa-hora");
+  if (sliderHora && parseInt(sliderHora.value, 10) !== hora) {
+    sliderHora.value = hora;
+  }
+
+  // 4. Actualizar Telemetría HUD
+  const elGhiVal = document.getElementById("hud-ghi-valor");
+  if (elGhiVal) elGhiVal.textContent = ghiBase.toFixed(1);
+
+  const elGhiBar = document.getElementById("hud-ghi-bar");
+  if (elGhiBar) elGhiBar.style.width = `${Math.min(100, (ghiBase / 1100) * 100).toFixed(1)}%`;
+
+  const elLeyendaVal = document.getElementById("mapa-leyenda-val");
+  if (elLeyendaVal) elLeyendaVal.textContent = `${ghiBase.toFixed(1)} W/m²`;
+
+  const elTempVal = document.getElementById("hud-temp-valor");
+  if (elTempVal) elTempVal.textContent = tempEstimada.toFixed(1);
+
+  const elPvVal = document.getElementById("hud-pv-valor");
+  if (elPvVal) elPvVal.textContent = pvEstimado.toFixed(2);
+
+  const elEpocaBadge = document.getElementById("hud-epoca-badge");
+  const nomEpoca = clima.epocas_meses?.[mes] ?? "seca";
+  if (elEpocaBadge) {
+    elEpocaBadge.textContent = nomEpoca === "seca" ? "Época Seca (Invierno)" : (nomEpoca === "lluviosa" ? "Época Lluviosa (Verano)" : "Transición");
+  }
+
+  // Estado del sol descriptivo
+  const elSolEstado = document.getElementById("hud-sol-estado");
+  if (elSolEstado) {
+    if (ghiBase <= 1) elSolEstado.textContent = "Noche (Sin radiación solar)";
+    else if (ghiBase < 200) elSolEstado.textContent = "Amanecer / Crepúsculo andino";
+    else if (ghiBase < 600) elSolEstado.textContent = "Radiación solar moderada";
+    else if (ghiBase < 850) elSolEstado.textContent = "Fuerte radiación solar andina";
+    else elSolEstado.textContent = "Pico Cenital Altiplánico (>850 W/m²)";
+  }
+
+  // Régimen atmosférico solar
+  const elSolBadge = document.getElementById("hud-sol-badge");
+  const elSolDesc = document.getElementById("hud-sol-desc");
+  if (elSolBadge && elSolDesc) {
+    if (ghiBase >= 750) {
+      elSolBadge.textContent = "PICO ANDINO";
+      elSolBadge.className = "px-2 py-0.5 rounded font-mono font-bold text-[10px] bg-red-500/20 text-red-400 border border-red-500/40";
+      elSolDesc.textContent = "Atmósfera andina diáfana de máxima transparencia y penetración solar directa.";
+    } else if (ghiBase >= 350) {
+      elSolBadge.textContent = "MODERADO";
+      elSolBadge.className = "px-2 py-0.5 rounded font-mono font-bold text-[10px] bg-amber-500/20 text-solar-400 border border-solar-500/40";
+      elSolDesc.textContent = "Generación solar continua favorable en valles interandinos y pie de monte.";
+    } else if (ghiBase > 10) {
+      elSolBadge.textContent = "CREPÚSCULO";
+      elSolBadge.className = "px-2 py-0.5 rounded font-mono font-bold text-[10px] bg-sky-500/20 text-sky-400 border border-sky-500/40";
+      elSolDesc.textContent = "Transición solar matutina / vespertina con dispersión atmosférica.";
+    } else {
+      elSolBadge.textContent = "NOCTURNO";
+      elSolBadge.className = "px-2 py-0.5 rounded font-mono font-bold text-[10px] bg-slate-800 text-slate-400 border border-slate-700";
+      elSolDesc.textContent = "Periodo nocturno sin irradiación solar (0 W/m²).";
+    }
+  }
+
+  // Estadísticas históricas del mes
+  const elIrradMedia = document.getElementById("hud-irrad-media");
+  const elIrradRango = document.getElementById("hud-irrad-rango");
+  if (clima.irradiacion_diaria_mes) {
+    const med = clima.irradiacion_diaria_mes.media?.[mes] ?? 0;
+    const p10 = clima.irradiacion_diaria_mes.p10?.[mes] ?? 0;
+    const p90 = clima.irradiacion_diaria_mes.p90?.[mes] ?? 0;
+    if (elIrradMedia) elIrradMedia.textContent = `${med.toFixed(2)} kWh/m²/d`;
+    if (elIrradRango) elIrradRango.textContent = `P10: ${p10.toFixed(2)} — P90: ${p90.toFixed(2)}`;
+  }
+
+  // 5. Actualizar la capa de calor continuo meteorológico (Leaflet.heat)
+  if (AppState.mapaSolar.capaHeatmap) {
+    if (ghiBase <= 1) {
+      // De noche: limpiar la capa para dejar el mapa blanco nítido
+      AppState.mapaSolar.capaHeatmap.setLatLngs([]);
+    } else {
+      const puntosHeat = [];
+      const escalaNorm = 1100.0; // Normalización contra pico solar máximo
+
+      NODOS_DEPARTAMENTALES_LA_PAZ.forEach(([lat, lon, factorMicro]) => {
+        // En época lluviosa, los Yungas sufren mayor atenuación por nubosidad
+        const factorEstacional = (nomEpoca === "lluviosa" && factorMicro < 0.95) ? factorMicro * 0.88 : factorMicro;
+        const ghiLocal = ghiBase * factorEstacional;
+        const intensidad = Math.min(1.0, Math.max(0.05, ghiLocal / escalaNorm));
+
+        // Punto principal del nodo
+        puntosHeat.push([lat, lon, intensidad]);
+
+        // Nodos vecinos de dispersión espacial para suavizar la malla continua
+        const offset = 0.08;
+        puntosHeat.push([lat + offset, lon, intensidad * 0.92]);
+        puntosHeat.push([lat - offset, lon, intensidad * 0.92]);
+        puntosHeat.push([lat, lon + offset, intensidad * 0.92]);
+        puntosHeat.push([lat, lon - offset, intensidad * 0.92]);
+      });
+
+      AppState.mapaSolar.capaHeatmap.setLatLngs(puntosHeat);
+    }
+  }
+
+  // 6. Actualizar radiación estimada en los popups de las estaciones
+  if (AppState.mapaSolar.marcadores && AppState.mapaSolar.marcadores.length > 0) {
+    AppState.mapaSolar.marcadores.forEach(({ marker, factor }) => {
+      const ghiEstacion = ghiBase <= 1 ? 0 : Math.round(ghiBase * factor * 10) / 10;
+      const popup = marker.getPopup();
+      if (popup && popup.isOpen()) {
+        const popupEl = popup.getElement();
+        if (popupEl) {
+          const valEl = popupEl.querySelector(".popup-ghi-val");
+          if (valEl) valEl.textContent = `${ghiEstacion.toFixed(1)} W/m²`;
+        }
+      }
+    });
+  }
+}
+
+function togglePlayMapaSolar() {
+  const btn = document.getElementById("btn-mapa-play");
+  const icon = document.getElementById("mapa-play-icon");
+  const txt = document.getElementById("mapa-play-text");
+
+  if (AppState.mapaSolar.reproduciendo) {
+    clearInterval(AppState.mapaSolar.intervaloPlay);
+    AppState.mapaSolar.intervaloPlay = null;
+    AppState.mapaSolar.reproduciendo = false;
+    if (icon) icon.textContent = "▶️";
+    if (txt) txt.textContent = "Reproducir 24h";
+    if (btn) btn.classList.replace("bg-amber-600", "bg-solar-500");
+  } else {
+    AppState.mapaSolar.reproduciendo = true;
+    if (icon) icon.textContent = "⏸️";
+    if (txt) txt.textContent = "Pausar";
+    if (btn) btn.classList.replace("bg-solar-500", "bg-amber-600");
+
+    AppState.mapaSolar.intervaloPlay = setInterval(() => {
+      AppState.mapaSolar.hora = (AppState.mapaSolar.hora + 1) % 24;
+      actualizarMapaSolar();
+    }, 750);
   }
 }
 
@@ -1017,18 +1450,18 @@ function renderizarGraficoSocSemana(semana, estrategia, compararVoraz) {
       {
         label: `SoC Mín. (${socMinPct.toFixed(0)}%)`,
         data: refMin,
-        borderColor: "rgba(239, 68, 68, 0.5)",
-        borderDash: [5, 5],
-        borderWidth: 1.5,
+        borderColor: "rgba(220, 38, 38, 0.85)",
+        borderDash: [6, 4],
+        borderWidth: 2,
         pointRadius: 0,
         fill: false,
       },
       {
-        label: `SoC Máx. (${socMaxPct.toFixed(0)}%)`,
+        label: `SoC Máx. (${socMinPct.toFixed(0)}%)`,
         data: refMax,
-        borderColor: "rgba(16, 185, 129, 0.5)",
-        borderDash: [5, 5],
-        borderWidth: 1.5,
+        borderColor: "rgba(5, 150, 105, 0.85)",
+        borderDash: [6, 4],
+        borderWidth: 2,
         pointRadius: 0,
         fill: false,
       },
@@ -1057,18 +1490,18 @@ function renderizarGraficoSocSemana(semana, estrategia, compararVoraz) {
       {
         label: `SoC Mín. (${socMinPct.toFixed(0)}%)`,
         data: refMin,
-        borderColor: "rgba(239, 68, 68, 0.5)",
-        borderDash: [5, 5],
-        borderWidth: 1.5,
+        borderColor: "rgba(220, 38, 38, 0.85)",
+        borderDash: [6, 4],
+        borderWidth: 2,
         pointRadius: 0,
         fill: false,
       },
       {
         label: `SoC Máx. (${socMaxPct.toFixed(0)}%)`,
         data: refMax,
-        borderColor: "rgba(16, 185, 129, 0.5)",
-        borderDash: [5, 5],
-        borderWidth: 1.5,
+        borderColor: "rgba(5, 150, 105, 0.85)",
+        borderDash: [6, 4],
+        borderWidth: 2,
         pointRadius: 0,
         fill: false,
       },
@@ -1315,16 +1748,182 @@ function renderizarConclusiones() {
 }
 
 // =============================================================================
+// GESTIÓN DE PESTAÑAS (TABS)
+// =============================================================================
+function inicializarPestanas() {
+  const tabBtns = document.querySelectorAll(".tab-btn");
+  const tabContents = document.querySelectorAll(".tab-content");
+
+  function activarTab(targetId) {
+    // 1. Ocultar todos los paneles de pestañas
+    tabContents.forEach((tc) => {
+      tc.classList.add("hidden");
+    });
+
+    // 2. Mostrar la pestaña seleccionada
+    const tabSeleccionada = document.getElementById(targetId);
+    if (tabSeleccionada) {
+      tabSeleccionada.classList.remove("hidden");
+    }
+
+    // 3. Actualizar estilos de los botones de navegación
+    tabBtns.forEach((btn) => {
+      const esActivo = btn.getAttribute("data-tab-target") === targetId;
+      if (esActivo) {
+        btn.classList.add("text-solar-400", "bg-slate-900", "border-solar-500/40", "shadow-sm");
+        btn.classList.remove("text-slate-400", "hover:text-slate-200", "hover:bg-slate-900/60", "border-transparent");
+        btn.setAttribute("aria-selected", "true");
+      } else {
+        btn.classList.remove("text-solar-400", "bg-slate-900", "border-solar-500/40", "shadow-sm");
+        btn.classList.add("text-slate-400", "hover:text-slate-200", "hover:bg-slate-900/60", "border-transparent");
+        btn.setAttribute("aria-selected", "false");
+      }
+    });
+
+    // 4. Actualizar hash de la URL sin saltar el scroll
+    try {
+      const hashName = targetId.replace("tab-", "");
+      if (window.location.hash !== `#${hashName}`) {
+        history.replaceState(null, null, `#${hashName}`);
+      }
+    } catch (e) {}
+
+    // 5. Scroll suave al inicio del contenido
+    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    // 6. Renderizar fórmulas matemáticas en la pestaña recién activada
+    renderizarFormulasMatematicas(tabSeleccionada);
+
+    // 7. Redibujar gráficos de Chart.js y mapa Leaflet para calcular dimensiones correctas
+    setTimeout(() => {
+      Object.values(AppState.graficos).forEach((chart) => {
+        if (chart && typeof chart.resize === "function") {
+          chart.resize();
+        }
+      });
+      if (AppState.mapaSolar?.mapa) {
+        AppState.mapaSolar.mapa.invalidateSize();
+      }
+      window.dispatchEvent(new Event("resize"));
+    }, 80);
+  }
+
+  // Event listener en los botones
+  tabBtns.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const targetId = btn.getAttribute("data-tab-target");
+      if (targetId) activarTab(targetId);
+    });
+  });
+
+  // Activar pestaña según el hash de la URL o por defecto la primera
+  const hash = window.location.hash.replace("#", "");
+  const targetFromHash = hash ? `tab-${hash}` : null;
+  if (targetFromHash && document.getElementById(targetFromHash)) {
+    activarTab(targetFromHash);
+  } else {
+    activarTab("tab-general");
+  }
+
+  // Manejar navegación adelante/atrás en el historial
+  window.addEventListener("hashchange", () => {
+    const nuevoHash = window.location.hash.replace("#", "");
+    const nuevoTarget = nuevoHash ? `tab-${nuevoHash}` : "tab-general";
+    if (document.getElementById(nuevoTarget)) {
+      activarTab(nuevoTarget);
+    }
+  });
+}
+
+// =============================================================================
+// RENDERIZADO DE FÓRMULAS MATEMÁTICAS (KaTeX con Fallback Tipográfico)
+// =============================================================================
+function renderizarFormulasMatematicas(contenedor = document.body) {
+  if (!contenedor) return;
+
+  // 1. Si KaTeX auto-render está disponible, renderizar con calidad LaTeX
+  if (typeof renderMathInElement === "function") {
+    try {
+      renderMathInElement(contenedor, {
+        delimiters: [
+          { left: "$$", right: "$$", display: true },
+          { left: "$", right: "$", display: false },
+          { left: "\\(", right: "\\)", display: false },
+          { left: "\\[", right: "\\]", display: true }
+        ],
+        throwOnError: false,
+        errorColor: "#f59e0b"
+      });
+      return;
+    } catch (e) {
+      console.warn("KaTeX renderMathInElement advertencia:", e);
+    }
+  }
+
+  // 2. Fallback de contingencia (sin red o antes de cargar CDN)
+  aplicarFallbackFormulas(contenedor);
+}
+
+function aplicarFallbackFormulas(nodo = document.body) {
+  if (!nodo) return;
+  const walker = document.createTreeWalker(nodo, NodeFilter.SHOW_TEXT, null, false);
+  let textNode;
+  const nodos = [];
+
+  while ((textNode = walker.nextNode())) {
+    if (textNode.nodeValue && textNode.nodeValue.includes("$")) {
+      nodos.push(textNode);
+    }
+  }
+
+  nodos.forEach((n) => {
+    const val = n.nodeValue;
+    if (/\$[^$]+\$/.test(val)) {
+      const span = document.createElement("span");
+      let html = val
+        .replace(/\$\$\\epsilon\$\$/g, '<span class="font-serif italic text-solar-400">ε</span>')
+        .replace(/\$\\epsilon\$/g, '<span class="font-serif italic text-solar-400">ε</span>')
+        .replace(/\$\\epsilon\s*=\s*0\$/g, '<span class="font-serif italic text-solar-400">ε = 0</span>')
+        .replace(/\$\\epsilon_\{?\\text\{ini\}\}?\s*\\to\s*\\epsilon_\{?\\text\{fin\}\}?\$/g, '<span class="font-serif italic text-solar-400">ε<sub>ini</sub> → ε<sub>fin</sub></span>')
+        .replace(/\$\\epsilon_\{ini\}\s*\\to\s*\\epsilon_\{fin\}\$/g, '<span class="font-serif italic text-solar-400">ε<sub>ini</sub> → ε<sub>fin</sub></span>')
+        .replace(/\$\\alpha\$/g, '<span class="font-serif italic text-solar-400">α</span>')
+        .replace(/\$\\gamma\$/g, '<span class="font-serif italic text-solar-400">γ</span>')
+        .replace(/\$\\pi\^\*\(s\)\$/g, '<span class="font-serif italic text-solar-400">π*(s)</span>')
+        .replace(/\$\\arg\\max_a\s*Q\(s,a\)\$/g, '<span class="font-serif italic text-solar-400">argmax<sub>a</sub> Q(s, a)</span>')
+        .replace(/\$S\$/g, '<span class="font-serif italic font-bold text-solar-400">S</span>')
+        .replace(/\$A\$/g, '<span class="font-serif italic font-bold text-solar-400">A</span>')
+        .replace(/\$R\$/g, '<span class="font-serif italic font-bold text-solar-400">R</span>')
+        .replace(/\$w_c\$/g, '<span class="font-serif italic text-red-400">w<sub>c</sub></span>')
+        .replace(/\$w_\{?\\text\{nc\}\}?\$/g, '<span class="font-serif italic text-amber-400">w<sub>nc</sub></span>')
+        .replace(/\$w_\{nc\}\$/g, '<span class="font-serif italic text-amber-400">w<sub>nc</sub></span>')
+        .replace(/\$w_b\$/g, '<span class="font-serif italic text-slate-300">w<sub>b</sub></span>');
+      span.innerHTML = html;
+      if (n.parentNode) {
+        n.parentNode.replaceChild(span, n);
+      }
+    }
+  });
+}
+
+// Exponer globalmente para el handler onload del script de KaTeX
+window.renderizarFormulasMatematicas = renderizarFormulasMatematicas;
+
+// =============================================================================
 // INICIALIZACIÓN PRINCIPAL
 // =============================================================================
 document.addEventListener("DOMContentLoaded", async () => {
   inicializarTema();
+  inicializarPestanas();
   inicializarFiltrosResultados();
+
+  // Renderizar fórmulas iniciales
+  renderizarFormulasMatematicas();
 
   const exito = await cargarDatosJSON();
   if (!exito) return;
 
   renderizarHeroKPIs();
+  inicializarMapaSolar();
   renderizarDatosClima();
   renderizarModeloMDP();
   renderizarEntrenamiento();
@@ -1333,4 +1932,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   inicializarSimuladorSemanas();
   inicializarPoliticaAprendida();
   renderizarConclusiones();
+
+  // Re-evaluar tras la inyección de datos dinámicos
+  renderizarFormulasMatematicas();
+});
+
+// Renderizar de nuevo cuando todos los recursos (CDN KaTeX) estén listos
+window.addEventListener("load", () => {
+  renderizarFormulasMatematicas();
 });
